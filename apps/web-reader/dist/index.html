@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="在浏览器中打开 .mandala 文件，逐层阅读 MandalArt 九宫格。">
+<link rel="stylesheet" href="./style.css">
+<script defer src="./archive.js"></script>
+<script defer src="./reader.js"></script>
+<title>MandalArt 阅读器</title>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span><strong>MandalArt</strong><span class="brand-label">阅读器</span></div>
+    <input type="file" id="file" accept=".mandala" hidden>
+    <button type="button" class="open" id="open"><span aria-hidden="true">↑</span> 打开文件</button>
+  </div>
+</header>
+<main id="workspace">
+  <div class="page-heading">
+    <div class="heading-copy">
+      <div class="document-name"><span class="file-dot" aria-hidden="true"></span><span id="file-name"></span></div>
+      <h1 id="heading"></h1>
+    </div>
+    <button type="button" id="up" class="secondary" hidden>← 上一层</button>
+  </div>
+  <nav id="trail" aria-label="当前层级"></nav>
+  <p id="status" role="status" hidden></p>
+  <div class="layout">
+    <section class="board" aria-label="九宫格">
+      <div class="board-top"><span class="board-label">九宫格</span><span id="board-count"></span></div>
+      <div id="grid" class="grid"></div>
+      <p class="board-hint"><span aria-hidden="true">↗</span> 展开分支 · 点击格子查看内容</p>
+    </section>
+    <aside class="detail" aria-labelledby="detail-label">
+      <div class="detail-top"><span id="detail-label">格子内容</span><span id="position"></span></div>
+      <div class="detail-content" id="detail-content">
+        <h2 id="detail-title"></h2>
+        <div id="media"></div>
+        <p id="detail-text"></p>
+      </div>
+      <div class="detail-bottom" id="detail-bottom" hidden>
+        <button class="secondary" type="button" id="expand">展开此格子 <span aria-hidden="true">↗</span></button>
+      </div>
+    </aside>
+  </div>
+  <footer><span>拖放 .mandala 文件到此页</span><span>文件在当前浏览器内读取</span></footer>
+</main>
+<div id="drop-overlay" hidden><div>松开以打开 .mandala 文件</div></div>
+<dialog id="image-dialog">
+  <button class="secondary" id="close-image" type="button">关闭</button>
+  <img id="full-image" alt="格子原图">
+</dialog>
+</body>
+</html>

@@ -1,0 +1,10 @@
+.DS_Store
+.build/
+DerivedData/
+xcuserdata/
+*.xcresult
+*.xcuserstate
+
+/apps/web-reader/.openai/
+/*.pdf
+/*.mandala
