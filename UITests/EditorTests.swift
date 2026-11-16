@@ -274,9 +274,17 @@ final class EditorTests: XCTestCase {
         app.launch()
         XCTAssertTrue(oldRow.waitForExistence(timeout: 10))
         XCTAssertTrue(rows.firstMatch.label.contains(older))
+        let rowFrame = oldRow.frame
         oldRow.swipeLeft(velocity: .slow)
-        let delete = app.buttons["Delete"].firstMatch
-        if delete.waitForExistence(timeout: 3) { delete.tap() }
+        let delete = app.buttons["delete-project"]
+        XCTAssertTrue(delete.waitForExistence(timeout: 5))
+        XCTAssertEqual(delete.frame.width, rowFrame.width / 2, accuracy: 2)
+        XCTAssertEqual(delete.frame.maxX, rowFrame.maxX, accuracy: 2)
+        XCTAssertEqual(delete.frame.midY, rowFrame.midY, accuracy: 1)
+        XCTAssertEqual(delete.frame.height, rowFrame.height, accuracy: 2)
+        XCTAssertEqual(delete.label, "Delete")
+        XCTAssertFalse(delete.staticTexts["Delete"].exists)
+        delete.tap()
         let removed = NSPredicate(format: "exists == false")
         expectation(for: removed, evaluatedWith: oldRow)
         waitForExpectations(timeout: 10)

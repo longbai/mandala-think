@@ -54,6 +54,7 @@ struct MainScreen: View {
     @Binding var language: String
     @State private var newProject = false
     @State private var filePicker = false
+    @State private var revealedProject: URL?
 
     var body: some View {
         NavigationStack {
@@ -118,30 +119,63 @@ struct MainScreen: View {
 
             List {
                 ForEach(workspace.projects, id: \.self) { url in
-                    Button { Task { await workspace.open(url) } } label: {
-                        Label {
-                            Text(verbatim: url.deletingPathExtension().lastPathComponent)
-                        } icon: {
-                            Image(systemName: "square.grid.3x3")
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .swipeActions(edge: .trailing) {
-                        Button(role: .destructive) {
-                            Task { await workspace.deleteProject(at: url) }
-                        } label: {
-                            Label(words("delete"), systemImage: "trash")
-                        }
-                    }
-                    .accessibilityIdentifier("project-row")
+                    projectRow(url)
+                        .listRowInsets(EdgeInsets())
                 }
             }
             .listStyle(.insetGrouped)
             .contentMargins(.top, 8, for: .scrollContent)
             .refreshable { workspace.refresh() }
         }
+    }
+
+    private func projectRow(_ url: URL) -> some View {
+        HStack(spacing: 0) {
+            Button {
+                revealedProject = nil
+                Task { await workspace.open(url) }
+            } label: {
+                Label {
+                    Text(verbatim: url.deletingPathExtension().lastPathComponent)
+                } icon: {
+                    Image(systemName: "square.grid.3x3")
+                }
+                .lineLimit(1)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .frame(minWidth: 0, maxWidth: .infinity, minHeight: 50, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("project-row")
+            .accessibilityAction(named: Text(words("delete"))) { deleteProject(url) }
+
+            if revealedProject == url {
+                Button(role: .destructive) {
+                    deleteProject(url)
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(minWidth: 0, maxWidth: .infinity, minHeight: 50, maxHeight: .infinity)
+                        .background(Color(uiColor: .systemRed))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(words("delete"))
+                .accessibilityIdentifier("delete-project")
+            }
+        }
+        .contentShape(Rectangle())
+        .background(ProjectRowSwipe { left in
+            guard left || revealedProject == url else { return }
+            withAnimation(.easeInOut(duration: 0.2)) { revealedProject = left ? url : nil }
+        })
+    }
+
+    private func deleteProject(_ url: URL) {
+        revealedProject = nil
+        Task { await workspace.deleteProject(at: url) }
     }
 
     @ViewBuilder
@@ -177,6 +211,62 @@ struct MainScreen: View {
                 }
             } label: { Label(words("language"), systemImage: "globe") }
             .accessibilityIdentifier("language-menu")
+        }
+    }
+}
+
+private struct ProjectRowSwipe: UIViewRepresentable {
+    let onSwipe: (Bool) -> Void
+
+    func makeUIView(context: Context) -> GestureRegion {
+        let view = GestureRegion()
+        view.isUserInteractionEnabled = false
+        return view
+    }
+
+    func updateUIView(_ view: GestureRegion, context: Context) { view.onSwipe = onSwipe }
+
+    final class GestureRegion: UIView, UIGestureRecognizerDelegate {
+        var onSwipe: ((Bool) -> Void)?
+        private lazy var pan: UIPanGestureRecognizer = {
+            let recognizer = UIPanGestureRecognizer(target: self, action: #selector(swiped(_:)))
+            recognizer.maximumNumberOfTouches = 1
+            recognizer.delegate = self
+            return recognizer
+        }()
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            pan.view?.removeGestureRecognizer(pan)
+            window?.addGestureRecognizer(pan)
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            guard bounds.contains(touch.location(in: self)), let touchedView = touch.view else { return false }
+            var ancestor = superview
+            while let view = ancestor {
+                if let scroll = view as? UIScrollView {
+                    return touchedView.isDescendant(of: scroll)
+                }
+                ancestor = view.superview
+            }
+            return false
+        }
+
+        override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            let velocity = pan.velocity(in: self)
+            return abs(velocity.x) > abs(velocity.y)
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+            otherGestureRecognizer.view is UIScrollView
+        }
+
+        @objc private func swiped(_ recognizer: UIPanGestureRecognizer) {
+            guard recognizer.state == .ended else { return }
+            let distance = recognizer.translation(in: self).x
+            if abs(distance) > 32 { onSwipe?(distance < 0) }
         }
     }
 }
