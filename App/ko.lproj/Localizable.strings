@@ -3,6 +3,7 @@
 "action.due" = "기한 설정";
 "action.edit" = "할 일 편집";
 "action.fromSelection" = "선택한 텍스트를 할 일로 만들기";
+"action.heading" = "할 일";
 "action.invalidDue" = "날짜와 해당 시간대의 시간이 올바른지 확인하세요.";
 "action.name" = "할 일 이름";
 "action.notes" = "메모";
@@ -14,6 +15,7 @@
 "cancel" = "취소";
 "cell.addAt" = "‘%@’에 칸 추가";
 "cell.body" = "본문";
+"cell.bodyPlaceholder" = "메모를 작성하세요…";
 "cell.color" = "색상";
 "cell.edit" = "칸 편집";
 "cell.move" = "칸 이동";

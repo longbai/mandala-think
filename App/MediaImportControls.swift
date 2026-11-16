@@ -7,8 +7,10 @@ import MandalaCore
 
 struct MediaImportControls: View {
     let draftID: UUID
+    let addLink: () -> Void
     @EnvironmentObject private var workspace: Workspace
     @Environment(\.words) private var words
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var photoSelection: PhotosPickerItem?
     @State private var choosingPhoto = false
     @State private var usingCamera = false
@@ -18,10 +20,26 @@ struct MediaImportControls: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) { buttons }
-                    .fixedSize(horizontal: true, vertical: false)
-                VStack(alignment: .leading, spacing: 8) { buttons }
+            Group {
+                if typeSize.isAccessibilitySize {
+                    VStack(spacing: 8) {
+                        libraryButton
+                        cameraButton
+                        fileButton
+                        linkButton
+                    }
+                } else {
+                    Grid(horizontalSpacing: 8, verticalSpacing: 8) {
+                        GridRow {
+                            libraryButton
+                            cameraButton
+                        }
+                        GridRow {
+                            fileButton
+                            linkButton
+                        }
+                    }
+                }
             }
             .buttonStyle(.bordered)
             .disabled(importing)
@@ -55,17 +73,34 @@ struct MediaImportControls: View {
         }
     }
 
-    @ViewBuilder
-    private var buttons: some View {
-        Button { choosingPhoto = true } label: {
-            Label(words("media.library"), systemImage: "photo.on.rectangle")
-        }.accessibilityIdentifier("media-library")
-        Button { Task { await openCamera() } } label: {
-            Label(words("media.camera"), systemImage: "camera")
-        }.accessibilityIdentifier("media-camera")
-        Button { choosingFile = true } label: {
-            Label(words("resource.attach"), systemImage: "folder")
-        }.accessibilityIdentifier("media-file")
+    private var libraryButton: some View {
+        resourceButton("media.library", icon: "photo.on.rectangle") { choosingPhoto = true }
+            .accessibilityIdentifier("media-library")
+    }
+
+    private var cameraButton: some View {
+        resourceButton("media.camera", icon: "camera") { Task { await openCamera() } }
+            .accessibilityIdentifier("media-camera")
+    }
+
+    private var fileButton: some View {
+        resourceButton("resource.attach", icon: "folder") { choosingFile = true }
+            .accessibilityIdentifier("media-file")
+    }
+
+    private var linkButton: some View {
+        resourceButton("resource.addLink", icon: "link", action: addLink)
+            .accessibilityIdentifier("resource-add-link")
+    }
+
+    private func resourceButton(_ key: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(words(key), systemImage: icon)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+        }
     }
 
     private func importPhoto(_ item: PhotosPickerItem) async {

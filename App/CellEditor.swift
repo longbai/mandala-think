@@ -6,42 +6,62 @@ import MandalaCore
 struct CellEditor: View {
     @EnvironmentObject private var workspace: Workspace
     @Environment(\.words) private var words
+    @ScaledMetric(relativeTo: .body) private var bodyHeight: CGFloat = 220
     @State private var action: ActionRequest?
     @State private var links = false
     @State private var selection = ""
 
     var body: some View {
         if let draft = workspace.draft {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                    Text(words("cell.body")).font(.headline)
-                    Spacer()
-                    CellColorMenu(color: draft.cell.color) { color in
-                        workspace.changeDraft { $0.cell.color = color }
-                    }
-                }
-                PlainEditor(label: words("cell.body"), text: bodyText, selection: { selection = $0 })
-                    .frame(height: 235)
-                    .background(.background, in: RoundedRectangle(cornerRadius: 10))
-                    .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(.separator.opacity(0.45)) }
+            VStack(alignment: .leading, spacing: 22) {
                 VStack(alignment: .leading, spacing: 8) {
+                    editorHeader(words("cell.body")) {
+                        CellColorMenu(color: draft.cell.color) { color in
+                            workspace.changeDraft { $0.cell.color = color }
+                        }
+                    }
+                    PlainEditor(label: words("cell.body"), placeholder: words("cell.bodyPlaceholder"),
+                                text: bodyText, selection: { selection = $0 })
+                        .frame(height: min(bodyHeight, 320))
+                        .background(Color.mandalaCard, in: RoundedRectangle(cornerRadius: 14))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 14)
+                                .strokeBorder(.separator.opacity(0.45))
+                                .allowsHitTesting(false)
+                        }
+                    SaveIndicator().font(.footnote)
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    editorHeader(words("action.heading")) {
+                        Button { action = ActionRequest() } label: {
+                            Label(words("action.add"), systemImage: "plus")
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityIdentifier("add-action")
+                    }
                     ForEach(draft.cell.actions ?? [], id: \.id) { item in
                         HStack {
-                            Button(item.title) { action = ActionRequest(item: item) }
-                                .accessibilityIdentifier("edit-action")
-                            Spacer()
+                            Button { action = ActionRequest(item: item) } label: {
+                                Label(item.title, systemImage: "checklist")
+                                    .multilineTextAlignment(.leading)
+                                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("edit-action")
                             Button(role: .destructive) {
                                 workspace.changeDraft {
                                     let values = ($0.cell.actions ?? []).filter { $0.id != item.id }
                                     $0.cell.actions = values.isEmpty ? nil : values
                                 }
                             } label: {
-                                Image(systemName: "minus.circle").accessibilityLabel(words("remove"))
+                                Image(systemName: "minus.circle")
+                                    .frame(width: 44, height: 44)
+                                    .contentShape(Rectangle())
+                                    .accessibilityLabel(words("remove"))
                             }.buttonStyle(.borderless)
                         }
                     }
-                    Button(words("action.add")) { action = ActionRequest() }
-                        .buttonStyle(.bordered).accessibilityIdentifier("add-action")
                     if !selection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Button(words("action.fromSelection")) {
                             action = ActionRequest(selection: selection)
@@ -49,7 +69,7 @@ struct CellEditor: View {
                     }
                 }
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(words("resource.heading")).font(.headline)
+                    Text(words("resource.heading")).font(.headline).accessibilityAddTraits(.isHeader)
                     ForEach(Array((draft.cell.resources ?? []).enumerated()), id: \.offset) { index, resource in
                         HStack {
                             ResourceLabel(resource: resource)
@@ -62,21 +82,38 @@ struct CellEditor: View {
                                     $0.cell.resources = values.isEmpty ? nil : values
                                 }
                             } label: {
-                                Image(systemName: "minus.circle").accessibilityLabel(words("remove"))
+                                Image(systemName: "minus.circle")
+                                    .frame(width: 44, height: 44)
+                                    .contentShape(Rectangle())
+                                    .accessibilityLabel(words("remove"))
                             }.buttonStyle(.borderless)
                         }
                     }
-                    MediaImportControls(draftID: draft.id)
-                    Button(words("resource.addLink")) { links = true }
-                        .buttonStyle(.bordered)
+                    MediaImportControls(draftID: draft.id, addLink: { links = true })
                 }
-                SaveIndicator()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .id(draft.id)
             .onChange(of: draft.id) { _, _ in selection = "" }
             .sheet(isPresented: $links) { LinkEditor() }
             .sheet(item: $action) { ActionEditor(request: $0) }
+        }
+    }
+
+    private func editorHeader<Trailing: View>(_ title: String,
+                                              @ViewBuilder trailing: () -> Trailing) -> some View {
+        let heading = Text(title).font(.headline).accessibilityAddTraits(.isHeader)
+        return ViewThatFits(in: .horizontal) {
+            HStack {
+                heading
+                Spacer()
+                trailing()
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 8) {
+                heading
+                trailing()
+            }
         }
     }
 
@@ -88,6 +125,7 @@ struct CellEditor: View {
 
 private struct PlainEditor: UIViewRepresentable {
     let label: String
+    let placeholder: String
     @Binding var text: String
     let selection: (String) -> Void
 
@@ -103,6 +141,21 @@ private struct PlainEditor: UIViewRepresentable {
         view.smartQuotesType = .no
         view.smartDashesType = .no
         view.smartInsertDeleteType = .no
+        let prompt = context.coordinator.prompt
+        prompt.font = view.font
+        prompt.adjustsFontForContentSizeCategory = true
+        prompt.textColor = .secondaryLabel
+        prompt.numberOfLines = 0
+        prompt.isAccessibilityElement = false
+        prompt.isUserInteractionEnabled = false
+        prompt.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(prompt)
+        let horizontalInset = view.textContainerInset.left + view.textContainer.lineFragmentPadding
+        NSLayoutConstraint.activate([
+            prompt.leadingAnchor.constraint(equalTo: view.contentLayoutGuide.leadingAnchor, constant: horizontalInset),
+            prompt.topAnchor.constraint(equalTo: view.contentLayoutGuide.topAnchor, constant: view.textContainerInset.top),
+            prompt.widthAnchor.constraint(equalTo: view.frameLayoutGuide.widthAnchor, constant: -2 * horizontalInset)
+        ])
         return view
     }
 
@@ -115,13 +168,17 @@ private struct PlainEditor: UIViewRepresentable {
             view.text = text
             if NSMaxRange(previous) <= (text as NSString).length { view.selectedRange = previous }
         }
+        context.coordinator.prompt.text = placeholder
+        context.coordinator.prompt.isHidden = !view.text.isEmpty
     }
 
     final class Coordinator: NSObject, UITextViewDelegate {
         var editor: PlainEditor
+        let prompt = UILabel()
         init(_ editor: PlainEditor) { self.editor = editor }
 
         func textViewDidChange(_ view: UITextView) {
+            prompt.isHidden = !view.text.isEmpty
             guard view.markedTextRange == nil else { return }
             editor.text = view.text ?? ""
         }
@@ -160,6 +217,7 @@ private struct LinkEditor: View {
                 TextField(words("resource.name"), text: $title)
                 TextField(words("resource.url"), text: $url)
                     .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    .accessibilityIdentifier("link-url")
             }
             .navigationTitle(words("resource.addLink"))
             .toolbar {

@@ -3,6 +3,7 @@
 "action.due" = "设置截止日期";
 "action.edit" = "编辑行动";
 "action.fromSelection" = "将所选文字转为行动";
+"action.heading" = "行动";
 "action.invalidDue" = "请检查日期及该时区下的时间（如已填写）。";
 "action.name" = "行动名称";
 "action.notes" = "备注";
@@ -14,6 +15,7 @@
 "cancel" = "取消";
 "cell.addAt" = "在%@添加格子";
 "cell.body" = "正文";
+"cell.bodyPlaceholder" = "写下你的想法…";
 "cell.color" = "颜色";
 "cell.edit" = "编辑格子";
 "cell.move" = "移动格子";

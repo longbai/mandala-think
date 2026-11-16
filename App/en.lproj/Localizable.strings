@@ -3,6 +3,7 @@
 "action.due" = "Set Due Date";
 "action.edit" = "Edit Action";
 "action.fromSelection" = "Make Action from Selection";
+"action.heading" = "Actions";
 "action.invalidDue" = "Check the date and any specified time in this time zone.";
 "action.name" = "Action Name";
 "action.notes" = "Notes";
@@ -14,6 +15,7 @@
 "cancel" = "Cancel";
 "cell.addAt" = "Add Cell at %@";
 "cell.body" = "Body";
+"cell.bodyPlaceholder" = "Write a note…";
 "cell.color" = "Color";
 "cell.edit" = "Edit Cell";
 "cell.move" = "Move Cell";

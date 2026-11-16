@@ -104,6 +104,10 @@ final class EditorTests: XCTestCase {
         XCTAssertTrue(app.buttons["media-library"].isHittable)
         XCTAssertTrue(app.buttons["media-camera"].isHittable)
         XCTAssertTrue(app.buttons["media-file"].isHittable)
+        app.buttons["resource-add-link"].tap()
+        let linkURL = app.textFields["link-url"]
+        XCTAssertTrue(linkURL.waitForExistence(timeout: 10))
+        app.buttons["Cancel"].tap()
         let back = app.buttons["finish-editing"]
         let compact = back.exists
         if compact { back.tap() }

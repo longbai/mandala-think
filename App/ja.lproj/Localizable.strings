@@ -3,6 +3,7 @@
 "action.due" = "期限を設定";
 "action.edit" = "アクションを編集";
 "action.fromSelection" = "選択したテキストをアクションにする";
+"action.heading" = "アクション";
 "action.invalidDue" = "日付と、入力した時刻がその時間帯で有効か確認してください。";
 "action.name" = "アクション名";
 "action.notes" = "メモ";
@@ -14,6 +15,7 @@
 "cancel" = "キャンセル";
 "cell.addAt" = "「%@」にマスを追加";
 "cell.body" = "本文";
+"cell.bodyPlaceholder" = "メモを書く…";
 "cell.color" = "色";
 "cell.edit" = "マスを編集";
 "cell.move" = "マスを移動";
