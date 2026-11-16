@@ -35,6 +35,7 @@
 "error.conflict" = "此项目已被其他设备或程序修改。可将当前修改保存为副本。";
 "error.document" = "文档数据无效（%@）。";
 "error.generic" = "操作失败。请重试，或检查文件权限与存储空间。";
+"error.noSpace" = "存储空间不足。请释放一些空间后重试。";
 "error.occupied" = "该格位已被占用。";
 "error.resource" = "资源无效或无法读取（%@）。";
 "error.size" = "文件或文档超过可处理的大小。";
@@ -119,6 +120,7 @@
 "resource.url" = "网址（https://）";
 "resource.video" = "视频";
 "save.clean" = "已保存";
+"save.noSpace" = "存储空间不足 · 重试";
 "save.recover" = "将当前修改保存为副本";
 "save.retry" = "重新保存";
 "save.saving" = "正在保存…";

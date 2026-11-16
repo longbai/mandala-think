@@ -35,6 +35,7 @@
 "error.conflict" = "다른 기기 또는 앱에서 프로젝트를 변경했습니다. 현재 변경 사항을 복사본으로 저장할 수 있습니다.";
 "error.document" = "문서 데이터가 올바르지 않습니다(%@).";
 "error.generic" = "작업에 실패했습니다. 다시 시도하거나 파일 권한과 저장 공간을 확인하세요.";
+"error.noSpace" = "저장 공간이 부족합니다. 공간을 확보한 후 다시 시도하세요.";
 "error.occupied" = "이미 사용 중인 위치입니다.";
 "error.resource" = "자료가 올바르지 않거나 읽을 수 없습니다(%@).";
 "error.size" = "파일 또는 문서가 크기 제한을 초과했습니다.";
@@ -119,6 +120,7 @@
 "resource.url" = "URL(https://)";
 "resource.video" = "동영상";
 "save.clean" = "저장됨";
+"save.noSpace" = "저장 공간 부족 · 재시도";
 "save.recover" = "현재 변경 사항을 복사본으로 저장";
 "save.retry" = "다시 저장";
 "save.saving" = "저장 중…";

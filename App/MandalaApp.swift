@@ -52,10 +52,28 @@ extension UTType {
     static let mandalaLegacy = UTType(importedAs: "org.mandalathink.legacy", conformingTo: .zip)
 }
 
+struct WorkspaceErrorAlert: ViewModifier {
+    @EnvironmentObject private var workspace: Workspace
+    @Environment(\.words) private var words
+    var enabled = true
+
+    func body(content: Content) -> some View {
+        content.alert(words("error.title"), isPresented: Binding(
+            get: { enabled && workspace.error != nil },
+            set: { if enabled && !$0 { workspace.error = nil } }
+        )) {
+            Button(words("ok"), role: .cancel) { workspace.error = nil }
+        } message: {
+            if let error = workspace.error { Text(verbatim: words.error(error)) }
+        }
+    }
+}
+
 struct MainScreen: View {
     @EnvironmentObject private var workspace: Workspace
     @Environment(\.words) private var words
     @Binding var language: String
+    @State private var compactEdit = false
     @State private var newProject = false
     @State private var filePicker = false
     @State private var revealedProject: URL?
@@ -65,7 +83,7 @@ struct MainScreen: View {
     var body: some View {
         NavigationStack {
             Group {
-                if workspace.project != nil { BoardScreen() }
+                if workspace.project != nil { BoardScreen(compactEdit: $compactEdit) }
                 else { home }
             }
             .background(Color.mandalaPaper)
@@ -107,12 +125,7 @@ struct MainScreen: View {
         }
         .sheet(item: $workspace.pendingImport) { ImportScreen(preview: $0) }
         .sheet(item: $workspace.share) { item in ShareScreen(url: item.url) }
-        .alert(words("error.title"), isPresented: Binding(get: { workspace.error != nil },
-                                                          set: { if !$0 { workspace.error = nil } })) {
-            Button(words("ok"), role: .cancel) { workspace.error = nil }
-        } message: {
-            if let error = workspace.error { Text(verbatim: words.error(error)) }
-        }
+        .modifier(WorkspaceErrorAlert(enabled: !compactEdit))
     }
 
     private var home: some View {

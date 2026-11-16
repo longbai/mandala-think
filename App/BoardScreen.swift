@@ -11,7 +11,7 @@ struct BoardScreen: View {
     @ScaledMetric(relativeTo: .subheadline) private var compactTileHeight: CGFloat = 100
     @State private var detail = false
     @State private var editAfterDetail: String?
-    @State private var compactEdit = false
+    @Binding var compactEdit: Bool
     @State private var overview = false
     @State private var zoomReset = 0
     @State private var zoomInteraction = BoardZoomInteraction()
@@ -156,6 +156,7 @@ struct BoardScreen: View {
                         }
                     }
             }
+            .modifier(WorkspaceErrorAlert())
         }
         .sheet(isPresented: $overview) { overviewSheet }
         .sheet(isPresented: $compatibility) { LegacyExportScreen() }
@@ -715,8 +716,10 @@ struct SaveIndicator: View {
             case .saving:
                 ProgressView().controlSize(.small)
                 Text(words("save.saving"))
-            case .failed:
-                Button(words("save.retry")) { Task { await workspace.flush() } }
+            case .failed, .storageFull:
+                Button(words(workspace.saveState == .storageFull ? "save.noSpace" : "save.retry")) {
+                    Task { await workspace.flush() }
+                }
             case .conflict:
                 Button(words("save.recover")) { Task { await workspace.recoverAsCopy() } }
             }

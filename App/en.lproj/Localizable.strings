@@ -35,6 +35,7 @@
 "error.conflict" = "Another device or app changed this project. You can save your changes as a copy.";
 "error.document" = "Invalid document data (%@).";
 "error.generic" = "Try again or check file permissions and available storage.";
+"error.noSpace" = "Storage is full. Free up some space, then try again.";
 "error.occupied" = "This position is already occupied.";
 "error.resource" = "Invalid or unreadable resource (%@).";
 "error.size" = "The file or document exceeds the size limit.";
@@ -119,6 +120,7 @@
 "resource.url" = "URL (https://)";
 "resource.video" = "Video";
 "save.clean" = "Saved";
+"save.noSpace" = "Storage Full · Retry";
 "save.recover" = "Save Changes as a Copy";
 "save.retry" = "Retry Save";
 "save.saving" = "Saving…";

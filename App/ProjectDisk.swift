@@ -1,9 +1,35 @@
 import Foundation
 import MandalaCore
+import OSLog
 
 enum ProjectDisk {
     private static let manager = FileManager.default
     private static let cloudContainer = "iCloud.org.mandalathink.app"
+    private static let saveLogger = Logger(subsystem: "org.mandalathink.app", category: "Save")
+
+    static func isOutOfSpace(_ error: Error) -> Bool {
+        errorChain(error).contains { cause in
+            (cause.domain == NSCocoaErrorDomain && cause.code == CocoaError.Code.fileWriteOutOfSpace.rawValue) ||
+            (cause.domain == NSPOSIXErrorDomain && cause.code == Int(POSIXErrorCode.ENOSPC.rawValue))
+        }
+    }
+
+    static func logSaveFailure(_ error: Error, stage: String) {
+        let codes = errorChain(error).map { "\($0.domain)(\($0.code))" }.joined(separator: " → ")
+        saveLogger.error("Save failed at \(stage, privacy: .public): \(codes, privacy: .public)")
+    }
+
+    private static func errorChain(_ error: Error) -> [NSError] {
+        var pending = [error as NSError]
+        var visited = Set<ObjectIdentifier>()
+        var chain = [NSError]()
+        while let cause = pending.popLast() {
+            guard visited.insert(ObjectIdentifier(cause)).inserted else { continue }
+            chain.append(cause)
+            pending.append(contentsOf: cause.underlyingErrors.reversed().map { $0 as NSError })
+        }
+        return chain
+    }
 
     static func library() throws -> URL {
         let url = try manager.url(for: .documentDirectory, in: .userDomainMask,
@@ -75,9 +101,14 @@ enum ProjectDisk {
                                                                   originalContentsURL: revision == nil ? nil : location)
             }
         }
-        if let coordinationError { throw coordinationError }
-        guard let result else { throw ProjectError.invalidDocument(url.lastPathComponent) }
-        try result.get()
+        do {
+            if let coordinationError { throw coordinationError }
+            guard let result else { throw ProjectError.invalidDocument(url.lastPathComponent) }
+            try result.get()
+        } catch {
+            logSaveFailure(error, stage: "project write")
+            throw error
+        }
     }
 
     static func create(_ project: Project, in directory: URL? = nil) throws -> URL {
@@ -168,14 +199,19 @@ enum ProjectDisk {
     }
 
     static func writeRecovery(_ candidate: Project, baseRevision: String) throws {
-        let path = try recoveryURL(candidate.manifest.projectID)
-        let package = try ProjectPackage.makeWrapper(for: candidate)
-        let wrapper = FileWrapper(directoryWithFileWrappers: [
-            "base": FileWrapper(regularFileWithContents: Data(baseRevision.utf8)),
-            "project.mprj": package
-        ])
-        try wrapper.write(to: path, options: .atomic,
-                          originalContentsURL: manager.fileExists(atPath: path.path) ? path : nil)
+        do {
+            let path = try recoveryURL(candidate.manifest.projectID)
+            let package = try ProjectPackage.makeWrapper(for: candidate)
+            let wrapper = FileWrapper(directoryWithFileWrappers: [
+                "base": FileWrapper(regularFileWithContents: Data(baseRevision.utf8)),
+                "project.mprj": package
+            ])
+            try wrapper.write(to: path, options: .atomic,
+                              originalContentsURL: manager.fileExists(atPath: path.path) ? path : nil)
+        } catch {
+            logSaveFailure(error, stage: "recovery write")
+            throw error
+        }
     }
 
     static func readRecovery(_ id: String) throws -> (base: String, candidate: Project)? {

@@ -35,6 +35,7 @@
 "error.conflict" = "プロジェクトが別のデバイスまたはアプリで変更されました。現在の編集をコピーとして保存できます。";
 "error.document" = "文書データが無効です（%@）。";
 "error.generic" = "操作できませんでした。再試行するか、ファイルのアクセス権と空き容量を確認してください。";
+"error.noSpace" = "空き容量が不足しています。容量を確保してから、もう一度お試しください。";
 "error.occupied" = "その位置は使用されています。";
 "error.resource" = "資料が無効か読み取れません（%@）。";
 "error.size" = "ファイルまたは文書がサイズの上限を超えています。";
@@ -119,6 +120,7 @@
 "resource.url" = "URL（https://）";
 "resource.video" = "動画";
 "save.clean" = "保存済み";
+"save.noSpace" = "容量不足 · 再試行";
 "save.recover" = "編集中の内容をコピーとして保存";
 "save.retry" = "保存を再試行";
 "save.saving" = "保存中…";

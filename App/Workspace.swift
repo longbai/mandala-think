@@ -6,7 +6,7 @@ import MandalaCore
 
 @MainActor
 final class Workspace: ObservableObject {
-    enum SaveState: String { case clean, saving, failed, conflict }
+    enum SaveState: String { case clean, saving, failed, storageFull, conflict }
 
     enum SaveLocation {
         case iCloud
@@ -400,8 +400,8 @@ final class Workspace: ObservableObject {
                 }
                 guard saved else { return false }
             } catch {
-                self.error = error
-                saveState = .failed
+                ProjectDisk.logSaveFailure(error, stage: "draft preparation")
+                reportSaveFailure(error)
                 return false
             }
         }
@@ -480,7 +480,13 @@ final class Workspace: ObservableObject {
     private func commit(_ value: Project, completion: @escaping @MainActor () -> Void = {}) async -> Bool {
         guard writeTask == nil, let original = project, let url = projectURL else { return false }
         var candidate = value
-        do { try candidate.advanceRevision() } catch { self.error = error; return false }
+        do {
+            try candidate.advanceRevision()
+        } catch {
+            ProjectDisk.logSaveFailure(error, stage: "revision preparation")
+            reportSaveFailure(error)
+            return false
+        }
         let next = candidate
         let revision = original.manifest.revision
         saveState = .saving
@@ -500,13 +506,22 @@ final class Workspace: ObservableObject {
                 return true
             } catch {
                 self.recoverable = next
-                self.saveState = (error as? ProjectError) == .conflict ? .conflict : .failed
-                self.error = error
+                if (error as? ProjectError) == .conflict {
+                    self.saveState = .conflict
+                    self.error = error
+                } else {
+                    self.reportSaveFailure(error)
+                }
                 return false
             }
         }
         writeTask = task
         return await task.value
+    }
+
+    private func reportSaveFailure(_ error: Error) {
+        saveState = ProjectDisk.isOutOfSpace(error) ? .storageFull : .failed
+        self.error = error
     }
 
     func recoverAsCopy() async {

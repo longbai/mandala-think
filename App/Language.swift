@@ -42,6 +42,7 @@ struct Words {
     }
 
     func error(_ error: Error) -> String {
+        if ProjectDisk.isOutOfSpace(error) { return self("error.noSpace") }
         if error is Workspace.StorageError { return self("file.iCloudUnavailable") }
         guard let projectError = error as? ProjectError else { return self("error.generic") }
         switch projectError {
