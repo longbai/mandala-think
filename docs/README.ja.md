@@ -39,7 +39,7 @@ UI テストは Xcode の **Product → Test** で実行できます。旧形式
 Go 1.22 以降を使い、リポジトリのルートで実行します。
 
 ```sh
-go -C apps/web-reader build -buildvcs=false -o ../../mandala-web-reader .
+go -C cli build -buildvcs=false -o ../mandala-web-reader .
 ```
 
-[apps/web-reader/dist](../apps/web-reader/dist) の HTML、CSS、JavaScript は実行ファイルに埋め込まれます。実行ファイルだけをコピーして起動できます。
+[cli/dist](../cli/dist) の HTML、CSS、JavaScript は実行ファイルに埋め込まれます。実行ファイルだけをコピーして起動できます。

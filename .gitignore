@@ -5,7 +5,7 @@ xcuserdata/
 *.xcresult
 *.xcuserstate
 
-/apps/web-reader/.openai/
+/cli/.openai/
 /mandala-web-reader
 /mandala-web-reader.exe
 /*.pdf

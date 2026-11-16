@@ -39,7 +39,7 @@ swift test --package-path MandalaCore
 用 Go 1.22 或更新版本，在仓库根目录运行：
 
 ```sh
-go -C apps/web-reader build -buildvcs=false -o ../../mandala-web-reader .
+go -C cli build -buildvcs=false -o ../mandala-web-reader .
 ```
 
-可执行文件内嵌 [apps/web-reader/dist](../apps/web-reader/dist) 中的 HTML、CSS 和 JavaScript，可以单独拷贝运行。
+可执行文件内嵌 [cli/dist](../cli/dist) 中的 HTML、CSS 和 JavaScript，可以单独拷贝运行。

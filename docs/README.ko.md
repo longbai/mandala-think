@@ -39,7 +39,7 @@ UI 테스트는 Xcode의 **Product → Test**에서 실행합니다. 이전 형�
 Go 1.22 이상으로 저장소 루트에서 다음 명령을 실행합니다.
 
 ```sh
-go -C apps/web-reader build -buildvcs=false -o ../../mandala-web-reader .
+go -C cli build -buildvcs=false -o ../mandala-web-reader .
 ```
 
-[apps/web-reader/dist](../apps/web-reader/dist)의 HTML, CSS, JavaScript가 실행 파일에 내장됩니다. 실행 파일만 복사해서 실행할 수 있습니다.
+[cli/dist](../cli/dist)의 HTML, CSS, JavaScript가 실행 파일에 내장됩니다. 실행 파일만 복사해서 실행할 수 있습니다.

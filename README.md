@@ -39,7 +39,7 @@ Run UI tests with **Product → Test** in Xcode. For the legacy import tests, co
 With Go 1.22 or later, run this from the repository root:
 
 ```sh
-go -C apps/web-reader build -buildvcs=false -o ../../mandala-web-reader .
+go -C cli build -buildvcs=false -o ../mandala-web-reader .
 ```
 
-The executable embeds the HTML, CSS, and JavaScript from [apps/web-reader/dist](apps/web-reader/dist). You can copy and run the executable by itself.
+The executable embeds the HTML, CSS, and JavaScript from [cli/dist](cli/dist). You can copy and run the executable by itself.
