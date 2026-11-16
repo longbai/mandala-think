@@ -8,7 +8,9 @@ struct BoardScreen: View {
     @Environment(\.words) private var words
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.horizontalSizeClass) private var horizontalSize
+    @ScaledMetric(relativeTo: .subheadline) private var compactTileHeight: CGFloat = 100
     @State private var detail = false
+    @State private var editAfterDetail: String?
     @State private var compactEdit = false
     @State private var overview = false
     @State private var zoomReset = 0
@@ -87,12 +89,6 @@ struct BoardScreen: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button { overview = true } label: { Label(words("grid.overview"), systemImage: "list.bullet.indent") }
-                    Button {
-                        layout = layout == .list ? .three : .list
-                    } label: {
-                        Label(words(layout == .list ? "grid.show" : "list.show"),
-                              systemImage: layout == .list ? "square.grid.3x3" : "list.bullet")
-                    }
                     Section(words("export")) {
                         Button(words("export.share")) { Task { await workspace.export(legacy: false) } }
                         Button(words("export.backup")) { Task { await workspace.export(legacy: false, backup: true) } }
@@ -109,17 +105,14 @@ struct BoardScreen: View {
             if compactEdit { compactEdit = false }
             else { detail = true }
         }
-        .sheet(isPresented: $detail, onDismiss: { workspace.reminderDestination = nil }) {
-            if let id = workspace.selectedID {
+        .sheet(isPresented: $detail, onDismiss: finishDetail) {
+            if let id = workspace.selectedID, workspace.project?.cells[id] != nil {
                 let destination = workspace.reminderDestination
                 let actionID = destination?.cellID == id ? destination?.actionID : nil
                 NavigationStack {
                     ScrollViewReader { scroll in
                         ScrollView {
-                            CellDetail(id: id, onEdit: {
-                                detail = false
-                                Task { await workspace.beginEdit(id: id); compactEdit = workspace.draft != nil }
-                            }).padding(18)
+                            CellDetail(id: id).padding(18)
                         }
                         .task(id: actionID) {
                             guard let actionID else { return }
@@ -127,7 +120,21 @@ struct BoardScreen: View {
                             scroll.scrollTo(actionID, anchor: .top)
                         }
                     }
-                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button(words("done")) { detail = false } } }
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button(words("done")) { detail = false }
+                        }
+                        ToolbarItem(placement: .primaryAction) {
+                            Button {
+                                editAfterDetail = id
+                                detail = false
+                            } label: {
+                                Label(words("cell.edit"), systemImage: "pencil")
+                                    .labelStyle(.iconOnly)
+                            }
+                            .accessibilityIdentifier("edit-cell")
+                        }
+                    }
                 }
                 .presentationDetents(actionID == nil ? [.medium, .large] : [.large])
             }
@@ -137,12 +144,13 @@ struct BoardScreen: View {
         }) {
             NavigationStack {
                 ScrollView { CellEditor().padding(18) }
+                    .scrollDismissesKeyboard(.interactively)
                     .background(Color.mandalaPaper)
                     .navigationTitle(words("cell.edit"))
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button(words("back")) {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(words("done")) {
                                 Task { if await workspace.finishEditor() { compactEdit = false } }
                             }.accessibilityIdentifier("finish-editing")
                         }
@@ -168,43 +176,65 @@ struct BoardScreen: View {
                     }.font(.subheadline)
                 }.scrollIndicators(.hidden)
             }
-            HStack(spacing: 8) {
-                HStack(spacing: 2) {
-                    layoutButton("3×3", mode: .three, identifier: "board-size-three")
-                    layoutButton("9×9", mode: .nine, identifier: "board-size-nine")
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    layoutControls
+                    Spacer(minLength: 8)
+                    SaveIndicator().fixedSize(horizontal: true, vertical: false)
                 }
-                .padding(3)
-                .background(Color.mandalaCard, in: Capsule())
-                if layout == .nine {
-                    Button { zoomReset += 1 } label: {
-                        Label(words("grid.fit"), systemImage: "arrow.down.right.and.arrow.up.left")
-                            .labelStyle(.iconOnly)
-                            .padding(8)
-                    }
-                    .buttonStyle(.bordered)
-                    .buttonBorderShape(.capsule)
-                    .accessibilityIdentifier("board-fit")
+                VStack(alignment: .leading, spacing: 4) {
+                    layoutControls
+                    SaveIndicator()
                 }
-                Spacer(minLength: 2)
-                SaveIndicator()
-            }.font(.footnote)
+            }
+            .font(.footnote)
         }
         .padding(.horizontal, 2)
     }
 
-    private func layoutButton(_ label: String, mode: BoardLayout, identifier: String) -> some View {
-        Button {
+    private var layoutControls: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 2) {
+                layoutButton(.three, identifier: "board-size-three") { Text(verbatim: "3×3") }
+                layoutButton(.nine, identifier: "board-size-nine") { Text(verbatim: "9×9") }
+                layoutButton(.list, identifier: "board-size-list") {
+                    Label(words("list.show"), systemImage: "list.bullet").labelStyle(.iconOnly)
+                }
+            }
+            .padding(.horizontal, 4)
+            .background(Color.mandalaCard, in: Capsule())
+            if layout == .nine {
+                Button { zoomReset += 1 } label: {
+                    Label(words("grid.fit"), systemImage: "arrow.down.right.and.arrow.up.left")
+                        .labelStyle(.iconOnly)
+                        .frame(width: 44, height: 44)
+                        .background(Color.mandalaCard, in: Circle())
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.mandalaInk)
+                .accessibilityIdentifier("board-fit")
+            }
+        }
+    }
+
+    private func layoutButton<Label: View>(_ mode: BoardLayout, identifier: String,
+                                          @ViewBuilder label: () -> Label) -> some View {
+        let selected = layout == mode
+        return Button {
             layout = mode
         } label: {
-            Text(verbatim: label)
+            label()
                 .fontWeight(.semibold)
                 .padding(.horizontal, 11)
                 .padding(.vertical, 7)
-                .foregroundStyle(layout == mode ? Color(uiColor: .systemBackground) : Color.mandalaInk)
-                .background(layout == mode ? Color.mandalaInk : Color.clear, in: Capsule())
+                .foregroundStyle(selected ? Color(uiColor: .systemBackground) : Color.mandalaInk)
+                .background(selected ? Color.mandalaInk : Color.clear, in: Capsule())
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityAddTraits(layout == mode ? .isSelected : [])
+        .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier(identifier)
     }
 
@@ -254,7 +284,7 @@ struct BoardScreen: View {
                             let block = row * 3 + column
                             expandedBlock(block, side: side)
                                 .frame(width: blockSide, height: blockSide)
-                                .background(Color.mandalaInk.opacity(block == 4 ? 0.14 : block.isMultiple(of: 2) ? 0.075 : 0.045),
+                                .background(block == 4 ? Color.mandalaInk.opacity(0.18) : Color.primary.opacity(0.07),
                                             in: RoundedRectangle(cornerRadius: 9))
                         }
                     }
@@ -337,6 +367,7 @@ struct BoardScreen: View {
         }
         .buttonStyle(.plain)
         .disabled(id == nil && !canAdd)
+        .accessibilityAddTraits(id != nil && id == workspace.selectedID ? .isSelected : [])
         .accessibilityIdentifier(identifier)
         .accessibilityLabel(id.map { positionName + ", " + cellPreview($0) } ??
                             words.described("cell.addAt", positionName))
@@ -352,7 +383,7 @@ struct BoardScreen: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 7))
         .modifier(CellSurface(color: cell?.color, center: position == nil,
-                              selected: id != nil && id == workspace.selectedID, radius: 7))
+                              selected: id != nil && id == workspace.selectedID, radius: 7, empty: id == nil))
         .overlay(alignment: .topTrailing) {
             if canExpand, let id {
                 Button {
@@ -384,7 +415,7 @@ struct BoardScreen: View {
         let textPreview = cell?.previewText
         let thumbnail = id.flatMap(imagePreview)
         let photoFillsTile = thumbnail != nil && !asList
-        let tileHeight: CGFloat = wide ? 112 : 100
+        let tileHeight = compactTileHeight + (wide ? 12 : 0)
         let firstAction = cell?.actions?.first
         let actionPreview = firstAction?.title
         let linkedAction = cell?.actions?.first { workspace.project?.reminderLinks[$0.id]?.state == .created }
@@ -448,19 +479,28 @@ struct BoardScreen: View {
                                         .lineLimit(asList ? nil : 3)
                                 }
                             } else if id == nil {
-                                Image(systemName: "plus").foregroundStyle(Color.mandalaInk)
-                                if let hint { Text(verbatim: hint).foregroundStyle(.secondary).font(.caption) }
+                                VStack(spacing: 5) {
+                                    Image(systemName: "plus")
+                                        .font(.subheadline.weight(.medium))
+                                        .foregroundStyle(Color.mandalaInk)
+                                    if let hint {
+                                        Text(verbatim: hint).font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .multilineTextAlignment(.center)
+                                    }
+                                }
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: asList ? .leading : .center)
                         .padding(.vertical, 6)
-                        .padding(.top, hasGridExpand ? 30 : 0)
+                        .padding(.top, hasGridExpand ? 24 : 0)
                         .frame(minHeight: 44, maxHeight: .infinity)
                     }
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityAddTraits(selected ? .isSelected : [])
             .accessibilityLabel(name.map { positionName + ", " + $0 } ?? words.described("cell.addAt", positionName))
             .accessibilityIdentifier("slot-" + (position?.rawValue ?? "center"))
             .contextMenu {
@@ -490,7 +530,7 @@ struct BoardScreen: View {
                 expandButton(id, position: position, onPhoto: photoFillsTile)
             }
         }
-        .modifier(CellSurface(color: cell?.color, center: center, selected: selected, radius: 15))
+        .modifier(CellSurface(color: cell?.color, center: center, selected: selected, radius: 15, empty: id == nil))
         .onDrag {
             guard let id, !center else { return NSItemProvider() }
             return NSItemProvider(object: ("mandala-cell:" + id) as NSString)
@@ -622,8 +662,15 @@ struct BoardScreen: View {
 
     private func edit(id: String, wide: Bool) {
         Task {
-            await workspace.beginEdit(id: id)
-            if !wide && workspace.draft != nil { compactEdit = true }
+            if await workspace.beginEdit(id: id), !wide { compactEdit = true }
+        }
+    }
+
+    private func finishDetail() {
+        workspace.reminderDestination = nil
+        if let id = editAfterDetail {
+            editAfterDetail = nil
+            edit(id: id, wide: false)
         }
     }
 

@@ -299,7 +299,7 @@ private struct ActionEditor: View {
 
 struct CellDetail: View {
     let id: String
-    let onEdit: () -> Void
+    var onEdit: (() -> Void)? = nil
     @EnvironmentObject private var workspace: Workspace
     @Environment(\.words) private var words
     @Environment(\.openURL) private var openURL
@@ -317,9 +317,11 @@ struct CellDetail: View {
             let cover = workspace.legacyCover(for: id).flatMap { UIImage(data: $0) }
 
             VStack(alignment: .leading, spacing: 14) {
-                Button(words("cell.edit"), action: onEdit)
-                    .buttonStyle(.bordered).accessibilityIdentifier("edit-cell")
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                if let onEdit {
+                    Button(words("cell.edit"), action: onEdit)
+                        .buttonStyle(.bordered).accessibilityIdentifier("edit-cell")
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
                 if cell.previewText != nil || !inlineImages.isEmpty || cover != nil {
                     VStack(alignment: .leading, spacing: 14) {
                         if let cover, cell.previewLine == nil { coverView(cover) }

@@ -285,10 +285,11 @@ final class Workspace: ObservableObject {
         selectedID = id
     }
 
-    func beginEdit(id: String) async {
-        guard await finishEditor(), let cell = project?.cells[id] else { return }
+    func beginEdit(id: String) async -> Bool {
+        guard await finishEditor(), let cell = project?.cells[id] else { return false }
         selectedID = id
         draft = Draft(cellID: id, cell: cell)
+        return true
     }
 
     func beginEmpty(slot: Slot, in parentID: String? = nil) async {

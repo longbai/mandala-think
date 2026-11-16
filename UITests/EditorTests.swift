@@ -477,6 +477,14 @@ final class EditorTests: XCTestCase {
         let bottomRight = app.buttons["slot-bottom_right"]
         XCTAssertTrue(bottomRight.waitForExistence(timeout: 10))
         XCTAssertTrue(bottomRight.label.contains("Grandchild note"))
+        let topLeftSlot = app.buttons["slot-top_left"]
+        let gridWidth = topLeftSlot.frame.width
+        let list = app.buttons["board-size-list"]
+        list.tap()
+        XCTAssertGreaterThan(topLeftSlot.frame.width, gridWidth * 2)
+        app.buttons["board-size-three"].tap()
+        XCTAssertEqual(topLeftSlot.frame.width, gridWidth, accuracy: 1)
+        XCTAssertTrue(bottomRight.label.contains("Grandchild note"))
         app.buttons["slot-center"].tap()
         app.buttons["edit-cell"].tap()
         XCTAssertTrue(color.waitForExistence(timeout: 10))

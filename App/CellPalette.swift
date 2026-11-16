@@ -47,22 +47,29 @@ struct CellSurface: ViewModifier {
     let center: Bool
     let selected: Bool
     let radius: CGFloat
+    var empty = false
+
+    @Environment(\.colorSchemeContrast) private var contrast
 
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: radius)
-        let background = color?.swatch.opacity(0.23) ?? (center ? Color.mandalaInk.opacity(0.15) : .mandalaCard)
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        let accent = color?.swatch ?? .mandalaInk
+        let fill = accent.opacity(center && !empty ? 0.24 : color == nil ? 0 : 0.16)
+        let background = empty ? Color.mandalaPaper : .mandalaCard
+        let border = if selected {
+            Color.mandalaInk
+        } else if color != nil || (center && !empty) {
+            accent.opacity(contrast == .increased ? 0.9 : 0.55)
+        } else {
+            Color.primary.opacity(contrast == .increased ? 0.4 : empty ? 0.15 : 0.09)
+        }
         content
-            .background(background, in: shape)
-            .overlay {
-                shape.strokeBorder(color?.swatch.opacity(0.85) ?? Color.mandalaInk.opacity(0.12),
-                                   lineWidth: color == nil ? 1 : 3)
-                    .allowsHitTesting(false)
+            .background {
+                shape.fill(fill).background(background, in: shape)
             }
             .overlay {
-                if selected {
-                    shape.inset(by: color == nil ? 0 : 3)
-                        .strokeBorder(Color.mandalaInk, lineWidth: 2).allowsHitTesting(false)
-                }
+                shape.strokeBorder(border, lineWidth: selected ? 2 : 1)
+                    .allowsHitTesting(false)
             }
     }
 }
