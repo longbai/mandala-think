@@ -9,7 +9,7 @@
 - 点击已有格可以查看详情，点击格内的展开按钮可进入下一层。点击空位会进入编辑器，键入有效内容才会生成格子，输入停顿后自动保存。
 - 系统「文件」可打开 `.mprj` 编辑包，或导入 `.mandalaprj` 和旧版 `.mandala`。分享、备份和旧版导出在九宫格工具菜单中。
 - 行动先保存在格子里。从格子详情选择「添加到提醒事项」，在列表中确认后才写入 Apple 提醒事项。
-- 日常编辑、包内附件和行动结构见 [格式规范](../../docs/mandala-format-v1.md)。首版验收和后续顺序见 [开发计划](../../docs/mandala-app-v1-plan.md)。
+- 日常编辑、包内附件和行动结构见 [格式规范](../../docs/mandala-format-v1.md)。
 - 独立浏览器阅读器的静态入口为 [apps/web-reader/dist/index.html](../web-reader/dist/index.html)，支持浏览旧版 `.mandala`。
 
 在 `apps/apple` 下用 `swift test --package-path MandalaCore` 运行格式测试。旧格式测试使用仓库自带的 [sample.mandala](MandalaCore/Tests/MandalaCoreTests/Fixtures/sample.mandala)，其中有三个格子、两级子格和一张图片。界面测试可在 Xcode 中使用 Product → Test 运行。旧格式界面测试需要先将同一个样本放进测试设备的 App Documents 目录，再用 `TEST_RUNNER_MANDALA_TEST_LEGACY_FIXTURE=1 xcodebuild … test` 启用。图库测试先用 `simctl addmedia` 将测试图片加入 iPhone 模拟器，再用 `TEST_RUNNER_MANDALA_TEST_PHOTO_FIXTURE=1 xcodebuild … test` 启用。
