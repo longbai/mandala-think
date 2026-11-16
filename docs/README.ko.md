@@ -8,6 +8,7 @@ MandalaThink는 iPhone과 iPad에서 쓰는 아홉 칸 사고 도구입니다. 3
 
 - **Apple 미리 알림 연동.** 각 칸의 할 일을 시스템 미리 알림에 추가할 수 있습니다. 미리 알림의 출처 링크를 누르면 해당 칸으로 돌아옵니다.
 - **iCloud Drive 동기화.** iCloud Drive를 사용할 수 있으면 새로 만들거나 가져온 프로젝트는 기본적으로 `iCloud Drive/MandalaThink`에 저장됩니다. 프로젝트별로 ‘이 기기에만 저장’을 선택할 수 있습니다. Mac에서는 Finder에서 같은 `.mprj`를 찾아 CLI로 편집할 수 있습니다.
+- **AI 에이전트 지원.** Mac에서 프로젝트 이름을 알려 주면 에이전트가 iCloud Drive에서 프로젝트를 찾고, `mandala` CLI와 YAML을 사용해 각 칸을 읽고 아이디어를 정리하거나 할 일을 수정할 수 있습니다. [MandalaThink 스킬](../skills/mandala-think/SKILL.md)
 - **별도 백엔드 없음.** 프로젝트는 기기 또는 자신의 iCloud Drive에 저장됩니다. 브라우저 리더는 파일을 브라우저 안에서 처리합니다.
 - **이전 MandalArt 형식 지원.** `.mandala` 파일을 가져오고 내보낼 수 있으며, 아홉 칸을 단계별로 살펴볼 수 있습니다.
 

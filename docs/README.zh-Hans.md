@@ -8,6 +8,7 @@ MandalaThink 是一款面向 iPhone 和 iPad 的九宫格思考工具。用 3×3
 
 - **调用系统提醒事项。** 格子里的行动可添加到 Apple 提醒事项，提醒中的来源链接可直接返回对应格子。
 - **通过 iCloud 云盘同步。** iCloud 云盘可用时，新建和导入的项目默认保存到 `iCloud 云盘/MandalaThink`。可为单个项目选择「仅此设备」。Mac 上可在 Finder 找到同一份 `.mprj`，并用 CLI 编辑。
+- **Agent 友好。** 在 Mac 上，告诉 Agent 项目名，它就能在 iCloud 云盘中找到项目，并通过 `mandala` CLI 和 YAML 读取格子、整理思路或更新行动。 [MandalaThink Skill](../skills/mandala-think/SKILL.md)
 - **无自建服务器。** 项目保存在设备本地或你的 iCloud 云盘。网页阅读器在浏览器内解析文件。
 - **兼容旧版 MandalArt。** 支持导入和导出 `.mandala` 文件，并逐层浏览九宫格。
 

@@ -8,6 +8,7 @@ MandalaThink は、iPhone と iPad で使える九マスの思考ツールです
 
 - **Apple のリマインダーと連携。** マスのアクションをシステムのリマインダーに追加できます。リマインダーのリンクから元のマスに戻れます。
 - **iCloud Drive で同期。** iCloud Drive が利用可能な場合、新規作成・読み込みしたプロジェクトは既定で `iCloud Drive/MandalaThink` に保存されます。プロジェクトごとに「このデバイスのみ」を選べます。Mac では Finder で同じ `.mprj` を見つけ、CLI で編集できます。
+- **AI エージェント対応。** Mac でプロジェクト名を伝えると、エージェントが iCloud Drive から探し、`mandala` CLI と YAML を使ってマスの読み取り、アイデアの整理、アクションの更新を行えます。 [MandalaThink スキル](../skills/mandala-think/SKILL.md)
 - **専用バックエンド不要。** プロジェクトはデバイス内、または自分の iCloud Drive に保存されます。ブラウザーリーダーはファイルをブラウザー内で処理します。
 - **旧版 MandalArt に対応。** `.mandala` ファイルの読み込みと書き出しに対応し、九マスを階層ごとに閲覧できます。
 

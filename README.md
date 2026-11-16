@@ -8,6 +8,7 @@ MandalaThink is a nine-square thinking tool for iPhone and iPad. Use the 3×3 vi
 
 - **Apple Reminders.** Send cell actions to the system Reminders app. Each reminder includes a link back to its source cell in MandalaThink.
 - **iCloud Drive sync.** New and imported projects default to `iCloud Drive/MandalaThink` when iCloud Drive is available. Choose **On This Device** to keep an individual project local. On Mac, find the same `.mprj` in Finder and edit it with the CLI.
+- **Agent-friendly.** Ask an AI agent to find an iCloud project by name on Mac, read its cells, reorganize ideas, or update actions using the `mandala` CLI and YAML. [MandalaThink Skill](skills/mandala-think/SKILL.md)
 - **No MandalaThink backend.** Projects stay on your device or in your iCloud Drive. The browser reader processes files locally in the browser.
 - **Legacy MandalArt compatibility.** Import and export `.mandala` files and browse their nested grids.
 
