@@ -25,22 +25,23 @@ Write a question, goal, or topic in the center of a 3×3 grid. Use the eight sur
 
 ### Browser reader
 
-Run `mandala-web-reader` and open [http://127.0.0.1:8080](http://127.0.0.1:8080). Select or drop a legacy `.mandala` file, such as [sample.mandala](MandalaCore/Tests/MandalaCoreTests/Fixtures/sample.mandala). The browser reads the file locally. Use `-listen 127.0.0.1:8081` to choose another port.
+Run `mandala serve` and open [http://127.0.0.1:8080](http://127.0.0.1:8080). Select or drop a legacy `.mandala` file, such as [sample.mandala](MandalaCore/Tests/MandalaCoreTests/Fixtures/sample.mandala). The browser reads the file locally. Use `--listen 127.0.0.1:8081` to choose another port.
 
 ### Document CLI
 
-On macOS, use `mandala-web-reader` to create and validate projects, edit a YAML snapshot, or convert between document formats.
+On macOS, use `mandala` to create and validate projects, edit a YAML snapshot, or convert between document formats.
 
 ```sh
-./mandala-web-reader new Notes.mprj "Notes" "What should I explore?"
-./mandala-web-reader read Notes.mprj > project.yaml
-# Edit project.yaml, then apply it to the same project.
-./mandala-web-reader write --replace Notes.mprj project.yaml
-./mandala-web-reader validate Notes.mprj
-./mandala-web-reader convert Notes.mprj Notes.mandalaprj
+./mandala create --title "Notes" --center "What should I explore?" --output Notes.mprj
+./mandala export --project Notes.mprj --output notes.yaml
+# Edit notes.yaml, then apply the edits to the original project.
+./mandala apply --project Notes.mprj --input notes.yaml
+./mandala validate --project Notes.mprj
+./mandala export --project Notes.mprj --output Notes.mandalaprj
+./mandala import --input OldNotes.mandala --output ImportedNotes.mprj
 ```
 
-Snapshots include cells, base64-encoded assets, and reminder records. An in-place write checks the project ID and revision in the snapshot. Use `mandala-web-reader --help` for stdin, backup, and legacy import options.
+On Mac, use `--name "Notes"` in place of `--project Notes.mprj` to select an iCloud project by name. Use `--output -` to export YAML to stdout and `--input -` to read YAML from stdin. `apply` checks the project ID and revision before writing.
 
 Install the public [MandalaThink skill](skills/mandala-think/SKILL.md) by copying the `skills/mandala-think` directory into your agent’s skills directory. Add the Go CLI to your PATH. In Codex, invoke `$mandala-think` with a project name, such as “Read Trip Planning.” On Mac the skill searches iCloud Drive → MandalaThink by default.
 
@@ -63,7 +64,7 @@ Run UI tests with **Product → Test** in Xcode. For the legacy import tests, co
 With Go 1.22 or later, run this from the repository root:
 
 ```sh
-go -C cli build -buildvcs=false -o ../mandala-web-reader .
+go -C cli build -buildvcs=false -o ../mandala .
 ```
 
 The executable embeds the HTML, CSS, and JavaScript from [cli/dist](cli/dist). You can copy and run the executable by itself.

@@ -20,25 +20,32 @@ func TestLocateProjectByName(t *testing.T) {
 		t.Fatal(err)
 	}
 	first := filepath.Join(folder, "Trip Planning.mprj")
-	if err := runDocument("new", []string{first, "旅行计划"}, nil, io.Discard); err != nil {
+	if err := runDocument("create", []string{"--output", first, "--title", "旅行计划"}, nil, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"旅行计划", "trip planning", "Trip Planning.mprj"} {
 		var output bytes.Buffer
-		err := runDocument("locate", []string{name}, nil, &output)
+		err := runDocument("locate", []string{"--name", name}, nil, &output)
 		if err != nil || strings.TrimSuffix(output.String(), "\n") != first {
 			t.Fatalf("locate %q: %q, %v", name, output.String(), err)
 		}
 	}
 	second := filepath.Join(folder, "Trip Planning 2.mprj")
-	if err := runDocument("new", []string{second, "旅行计划"}, nil, io.Discard); err != nil {
+	if err := runDocument("create", []string{"--output", second, "--title", "旅行计划"}, nil, io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if err := runDocument("locate", []string{"旅行计划"}, nil, io.Discard); err == nil || !strings.Contains(err.Error(), "ambiguous") {
+	if err := runDocument("locate", []string{"--name", "旅行计划"}, nil, io.Discard); err == nil || !strings.Contains(err.Error(), "ambiguous") {
 		t.Fatalf("expected two matches, got %v", err)
 	}
-	if err := runDocument("locate", []string{"Missing"}, nil, io.Discard); err == nil || !strings.Contains(err.Error(), "not found") {
+	if err := runDocument("locate", []string{"--name", "Missing"}, nil, io.Discard); err == nil || !strings.Contains(err.Error(), "not found") {
 		t.Fatalf("expected no matches, got %v", err)
+	}
+	var snapshot bytes.Buffer
+	if err := runDocument("export", []string{"--name", "Trip Planning 2.mprj", "--output", "-"}, nil, &snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if err := runDocument("apply", []string{"--name", "Trip Planning 2.mprj", "--input", "-"}, &snapshot, io.Discard); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -46,12 +53,12 @@ func TestYAMLDocumentCommands(t *testing.T) {
 	folder := t.TempDir()
 	fixture := "../MandalaCore/Tests/MandalaCoreTests/Fixtures/sample.mandala"
 	document := filepath.Join(folder, "Sample.mprj")
-	if err := runDocument("convert", []string{fixture, document}, nil, io.Discard); err != nil {
+	if err := runDocument("import", []string{"--input", fixture, "--output", document}, nil, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 
 	var output bytes.Buffer
-	if err := runDocument("read", []string{document}, nil, &output); err != nil {
+	if err := runDocument("export", []string{"--project", document, "--output", "-"}, nil, &output); err != nil {
 		t.Fatal(err)
 	}
 	base := append([]byte(nil), output.Bytes()...)
@@ -68,11 +75,11 @@ func TestYAMLDocumentCommands(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	update := []string{"--replace", document}
-	if err := runDocument("write", update, bytes.NewReader(edited), io.Discard); err != nil {
+	update := []string{"--project", document, "--input", "-"}
+	if err := runDocument("apply", update, bytes.NewReader(edited), io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if err := runDocument("write", update, bytes.NewReader(base), io.Discard); err == nil {
+	if err := runDocument("apply", update, bytes.NewReader(base), io.Discard); err == nil {
 		t.Fatal("stale revision was accepted")
 	}
 	updated, err := readPackage(document)
@@ -83,6 +90,21 @@ func TestYAMLDocumentCommands(t *testing.T) {
 		if !bytes.Equal(data, p.Assets[name]) {
 			t.Fatalf("asset %s changed", name)
 		}
+	}
+	archive := filepath.Join(folder, "Sample.mandalaprj")
+	if err := runDocument("export", []string{"--project", document, "--output", archive, "--backup"}, nil, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	restored := filepath.Join(folder, "Restored.mprj")
+	if err := runDocument("import", []string{"--input", archive, "--output", restored, "--restore"}, nil, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	copy, err := readPackage(restored)
+	if err != nil || copy.Manifest.ID != updated.Manifest.ID {
+		t.Fatalf("backup restoration changed the project identity: %v", err)
+	}
+	if err := runDocument("validate", []string{restored}, nil, io.Discard); err == nil || !strings.Contains(err.Error(), "named flags") {
+		t.Fatalf("expected positional arguments to be rejected, got %v", err)
 	}
 }
 
@@ -100,11 +122,11 @@ func TestRejectsAmbiguousYAML(t *testing.T) {
 
 func TestConcurrentReplacementKeepsOnlyOneRevision(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "Concurrent.mprj")
-	if err := runDocument("new", []string{target, "Concurrent"}, nil, io.Discard); err != nil {
+	if err := runDocument("create", []string{"--output", target, "--title", "Concurrent"}, nil, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	var data bytes.Buffer
-	if err := runDocument("read", []string{target}, nil, &data); err != nil {
+	if err := runDocument("export", []string{"--project", target, "--output", "-"}, nil, &data); err != nil {
 		t.Fatal(err)
 	}
 	const count = 2
@@ -114,7 +136,7 @@ func TestConcurrentReplacementKeepsOnlyOneRevision(t *testing.T) {
 		writes.Add(1)
 		go func() {
 			defer writes.Done()
-			results <- runDocument("write", []string{"--replace", target}, bytes.NewReader(data.Bytes()), io.Discard)
+			results <- runDocument("apply", []string{"--project", target, "--input", "-"}, bytes.NewReader(data.Bytes()), io.Discard)
 		}()
 	}
 	writes.Wait()

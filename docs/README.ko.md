@@ -25,22 +25,23 @@ MandalaThink는 iPhone과 iPad에서 쓰는 아홉 칸 사고 도구입니다. 3
 
 ### 브라우저 리더
 
-`mandala-web-reader`를 실행하고 [http://127.0.0.1:8080](http://127.0.0.1:8080)을 엽니다. 이전 형식의 `.mandala` 파일을 선택하거나 페이지에 끌어 놓습니다. [sample.mandala](../MandalaCore/Tests/MandalaCoreTests/Fixtures/sample.mandala)로 시험해 볼 수 있습니다. 파일은 브라우저에서 읽습니다. 다른 포트를 쓰려면 `-listen 127.0.0.1:8081`을 지정하세요.
+`mandala serve`를 실행하고 [http://127.0.0.1:8080](http://127.0.0.1:8080)을 엽니다. 이전 형식의 `.mandala` 파일을 선택하거나 페이지에 끌어 놓습니다. [sample.mandala](../MandalaCore/Tests/MandalaCoreTests/Fixtures/sample.mandala)로 시험해 볼 수 있습니다. 파일은 브라우저에서 읽습니다. 다른 포트를 쓰려면 `--listen 127.0.0.1:8081`을 지정하세요.
 
 ### 문서 CLI
 
-macOS에서는 `mandala-web-reader`로 프로젝트를 만들고 검증하거나, YAML 스냅샷을 편집하거나, 문서 형식을 변환할 수 있습니다.
+macOS에서는 `mandala`로 프로젝트를 만들고 검증하거나, YAML 스냅샷을 편집하거나, 문서 형식을 변환할 수 있습니다.
 
 ```sh
-./mandala-web-reader new Notes.mprj "노트" "무엇을 더 살펴볼까?"
-./mandala-web-reader read Notes.mprj > project.yaml
-# project.yaml을 편집한 뒤 원래 프로젝트에 반영
-./mandala-web-reader write --replace Notes.mprj project.yaml
-./mandala-web-reader validate Notes.mprj
-./mandala-web-reader convert Notes.mprj Notes.mandalaprj
+./mandala create --title "노트" --center "무엇을 더 살펴볼까?" --output Notes.mprj
+./mandala export --project Notes.mprj --output notes.yaml
+# notes.yaml을 편집한 뒤 같은 프로젝트에 변경 사항을 적용합니다.
+./mandala apply --project Notes.mprj --input notes.yaml
+./mandala validate --project Notes.mprj
+./mandala export --project Notes.mprj --output Notes.mandalaprj
+./mandala import --input OldNotes.mandala --output ImportedNotes.mprj
 ```
 
-YAML에는 각 칸의 내용, Base64로 인코딩한 첨부 파일, 미리 알림 기록이 포함됩니다. 기존 프로젝트에 다시 쓸 때는 프로젝트 ID와 리비전을 확인합니다. 표준 입력, 백업, 이전 형식 가져오기 옵션은 `mandala-web-reader --help`에서 확인할 수 있습니다.
+Mac에서는 `--project Notes.mprj` 대신 `--name "노트"`를 사용해 iCloud 프로젝트를 이름으로 지정할 수 있습니다. `--output -`는 YAML을 표준 출력으로 보내고, `--input -`는 표준 입력에서 YAML을 읽습니다. `apply`는 쓰기 전에 프로젝트 ID와 리비전을 확인합니다.
 
 공개 [MandalaThink 스킬](../skills/mandala-think/SKILL.md)의 `skills/mandala-think` 디렉터리를 에이전트의 스킬 디렉터리에 복사하고 Go CLI를 PATH에 추가하세요. Codex에서 `$mandala-think`를 호출할 때 프로젝트 이름만 입력하면 됩니다. Mac에서는 기본적으로 iCloud Drive → MandalaThink에서 검색합니다.
 
@@ -63,7 +64,7 @@ UI 테스트는 Xcode의 **Product → Test**에서 실행합니다. 이전 형�
 Go 1.22 이상으로 저장소 루트에서 다음 명령을 실행합니다.
 
 ```sh
-go -C cli build -buildvcs=false -o ../mandala-web-reader .
+go -C cli build -buildvcs=false -o ../mandala .
 ```
 
 [cli/dist](../cli/dist)의 HTML, CSS, JavaScript가 실행 파일에 내장됩니다. 실행 파일만 복사해서 실행할 수 있습니다.

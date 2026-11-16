@@ -25,22 +25,23 @@ MandalaThink 是一款面向 iPhone 和 iPad 的九宫格思考工具。用 3×3
 
 ### 浏览器阅读器
 
-运行 `mandala-web-reader`，打开 [http://127.0.0.1:8080](http://127.0.0.1:8080)，选择或拖入旧版 `.mandala` 文件。可用 [sample.mandala](../MandalaCore/Tests/MandalaCoreTests/Fixtures/sample.mandala) 试读。文件由浏览器在本地解析。用 `-listen 127.0.0.1:8081` 可切换端口。
+运行 `mandala serve`，打开 [http://127.0.0.1:8080](http://127.0.0.1:8080)，选择或拖入旧版 `.mandala` 文件。可用 [sample.mandala](../MandalaCore/Tests/MandalaCoreTests/Fixtures/sample.mandala) 试读。文件由浏览器在本地解析。用 `--listen 127.0.0.1:8081` 可切换端口。
 
 ### 文档 CLI
 
-在 macOS 上可用 `mandala-web-reader` 创建、读取和校验项目，通过 YAML 编辑内容，也可在文档包和分享包之间转换。
+在 macOS 上可用 `mandala` 创建、读取和校验项目，通过 YAML 编辑内容，也可在文档包和分享包之间转换。
 
 ```sh
-./mandala-web-reader new Notes.mprj "笔记" "有哪些值得探索的问题？"
-./mandala-web-reader read Notes.mprj > project.yaml
-# 编辑 project.yaml 后写回原项目
-./mandala-web-reader write --replace Notes.mprj project.yaml
-./mandala-web-reader validate Notes.mprj
-./mandala-web-reader convert Notes.mprj Notes.mandalaprj
+./mandala create --title "笔记" --center "有哪些值得探索的问题？" --output Notes.mprj
+./mandala export --project Notes.mprj --output notes.yaml
+# 编辑 notes.yaml，再把改动写回同一份项目。
+./mandala apply --project Notes.mprj --input notes.yaml
+./mandala validate --project Notes.mprj
+./mandala export --project Notes.mprj --output Notes.mandalaprj
+./mandala import --input OldNotes.mandala --output ImportedNotes.mprj
 ```
 
-YAML 快照包含格子、以 Base64 编码的附件和提醒事项记录。写回原项目时会检查快照中的项目 ID 和修订号。标准输入、备份和旧格式导入选项见 `mandala-web-reader --help`。
+在 Mac 上可以用 `--name "笔记"` 代替 `--project Notes.mprj`，按名称查找 iCloud 项目。`--output -` 将 YAML 写到标准输出，`--input -` 从标准输入读取 YAML。`apply` 写回前校验项目 ID 和修订号。
 
 将公开的 [MandalaThink Skill](../skills/mandala-think/SKILL.md) 目录 `skills/mandala-think` 复制到 Agent 的 skills 目录，并将 Go CLI 加入 PATH。在 Codex 中调用 `$mandala-think` 后直接说项目名，例如「读取旅行计划」。在 Mac 上，Skill 默认在「iCloud 云盘 → MandalaThink」中查找。
 
@@ -63,7 +64,7 @@ swift test --package-path MandalaCore
 用 Go 1.22 或更新版本，在仓库根目录运行：
 
 ```sh
-go -C cli build -buildvcs=false -o ../mandala-web-reader .
+go -C cli build -buildvcs=false -o ../mandala .
 ```
 
 可执行文件内嵌 [cli/dist](../cli/dist) 中的 HTML、CSS 和 JavaScript，可以单独拷贝运行。
