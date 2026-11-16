@@ -20,13 +20,17 @@ struct MandalaThinkApp: App {
                 .tint(.mandalaInk)
                 .onOpenURL { url in
                     Task {
-                        if url.scheme == "mandala-think" { await workspace.openReminderURL(url) }
+                        if url.scheme?.lowercased() == "mandala-think" { await workspace.openReminderURL(url) }
                         else { await workspace.open(url) }
                     }
                 }
-                .onChange(of: phase) { _, phase in
+                .onChange(of: phase, initial: true) { _, phase in
                     if phase == .background { workspace.setBackground(true) }
-                    if phase == .active { workspace.setBackground(false); workspace.updateSyncState() }
+                    if phase == .active {
+                        workspace.setBackground(false)
+                        workspace.updateSyncState()
+                        Task { await workspace.refreshCloudLibrary() }
+                    }
                 }
         }
     }
@@ -55,6 +59,8 @@ struct MainScreen: View {
     @State private var newProject = false
     @State private var filePicker = false
     @State private var revealedProject: URL?
+    @State private var draggedRow: (url: URL, offset: CGFloat)?
+    private static let deleteWidth: CGFloat = 72
 
     var body: some View {
         NavigationStack {
@@ -84,6 +90,10 @@ struct MainScreen: View {
             }
             #endif
         }
+        .onReceive(NotificationCenter.default.publisher(for: .NSMetadataQueryDidFinishGathering,
+                                                          object: workspace.cloudProjects)) { _ in workspace.refresh() }
+        .onReceive(NotificationCenter.default.publisher(for: .NSMetadataQueryDidUpdate,
+                                                          object: workspace.cloudProjects)) { _ in workspace.refresh() }
         .fileImporter(isPresented: $filePicker,
                       allowedContentTypes: [.mandalaPackage, .mandalaShare, .mandalaLegacy, .zip]) { result in
             switch result {
@@ -125,51 +135,75 @@ struct MainScreen: View {
             }
             .listStyle(.insetGrouped)
             .contentMargins(.top, 8, for: .scrollContent)
-            .refreshable { workspace.refresh() }
+            .refreshable { await workspace.refreshCloudLibrary() }
         }
     }
 
     private func projectRow(_ url: URL) -> some View {
-        HStack(spacing: 0) {
-            Button {
-                revealedProject = nil
-                Task { await workspace.open(url) }
-            } label: {
-                Label {
-                    Text(verbatim: url.deletingPathExtension().lastPathComponent)
-                } icon: {
-                    Image(systemName: "square.grid.3x3")
-                }
-                .lineLimit(1)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .frame(minWidth: 0, maxWidth: .infinity, minHeight: 50, alignment: .leading)
-                .contentShape(Rectangle())
+        let revealed = revealedProject == url
+        let offset = draggedRow?.url == url ? draggedRow?.offset ?? 0 : revealed ? Self.deleteWidth : 0
+        return Button {
+            revealedProject = nil
+            Task { await workspace.open(url) }
+        } label: {
+            Label {
+                Text(verbatim: url.deletingPathExtension().lastPathComponent)
+            } icon: {
+                Image(systemName: "square.grid.3x3")
             }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("project-row")
-            .accessibilityAction(named: Text(words("delete"))) { deleteProject(url) }
-
-            if revealedProject == url {
-                Button(role: .destructive) {
-                    deleteProject(url)
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .frame(minWidth: 0, maxWidth: .infinity, minHeight: 50, maxHeight: .infinity)
-                        .background(Color(uiColor: .systemRed))
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(words("delete"))
-                .accessibilityIdentifier("delete-project")
-            }
+            .lineLimit(1)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
+            .background(Color.mandalaCard)
+            .contentShape(Rectangle())
         }
-        .contentShape(Rectangle())
-        .background(ProjectRowSwipe { left in
-            guard left || revealedProject == url else { return }
-            withAnimation(.easeInOut(duration: 0.2)) { revealedProject = left ? url : nil }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("project-row")
+        .accessibilityAction(named: Text(words("delete"))) { deleteProject(url) }
+        .offset(x: -offset)
+        .background(alignment: .trailing) {
+            Image(systemName: "trash")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(maxHeight: .infinity)
+                .frame(width: Self.deleteWidth)
+                .background(Color(uiColor: .systemRed))
+                .accessibilityHidden(true)
+                .overlay {
+                    if revealed {
+                        Button(role: .destructive) {
+                            deleteProject(url)
+                        } label: {
+                            Color.clear.contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(words("delete"))
+                        .accessibilityIdentifier("delete-project")
+                    }
+                }
+        }
+        .clipped()
+        .background(ProjectRowSwipe { event in
+            let start = revealed ? Self.deleteWidth : 0
+            switch event {
+            case .dragged(let distance):
+                if distance < 0, !revealed, revealedProject != nil {
+                    withAnimation(.easeOut(duration: 0.2)) { revealedProject = nil }
+                }
+                draggedRow = (url, min(Self.deleteWidth, max(0, start - distance)))
+            case .ended(let distance):
+                withAnimation(.easeOut(duration: 0.22)) {
+                    if start - distance >= Self.deleteWidth / 2 {
+                        revealedProject = url
+                    } else if revealed {
+                        revealedProject = nil
+                    }
+                    draggedRow = nil
+                }
+            case .cancelled:
+                withAnimation(.easeOut(duration: 0.22)) { draggedRow = nil }
+            }
         })
     }
 
@@ -216,7 +250,13 @@ struct MainScreen: View {
 }
 
 private struct ProjectRowSwipe: UIViewRepresentable {
-    let onSwipe: (Bool) -> Void
+    enum Event {
+        case dragged(CGFloat)
+        case ended(CGFloat)
+        case cancelled
+    }
+
+    let onSwipe: (Event) -> Void
 
     func makeUIView(context: Context) -> GestureRegion {
         let view = GestureRegion()
@@ -227,7 +267,7 @@ private struct ProjectRowSwipe: UIViewRepresentable {
     func updateUIView(_ view: GestureRegion, context: Context) { view.onSwipe = onSwipe }
 
     final class GestureRegion: UIView, UIGestureRecognizerDelegate {
-        var onSwipe: ((Bool) -> Void)?
+        var onSwipe: ((Event) -> Void)?
         private lazy var pan: UIPanGestureRecognizer = {
             let recognizer = UIPanGestureRecognizer(target: self, action: #selector(swiped(_:)))
             recognizer.maximumNumberOfTouches = 1
@@ -264,9 +304,43 @@ private struct ProjectRowSwipe: UIViewRepresentable {
         }
 
         @objc private func swiped(_ recognizer: UIPanGestureRecognizer) {
-            guard recognizer.state == .ended else { return }
             let distance = recognizer.translation(in: self).x
-            if abs(distance) > 32 { onSwipe?(distance < 0) }
+            switch recognizer.state {
+            case .changed:
+                onSwipe?(.dragged(distance))
+            case .ended:
+                let projectedDistance = distance + min(24, max(-24, recognizer.velocity(in: self).x * 0.08))
+                onSwipe?(.ended(projectedDistance))
+            case .cancelled:
+                onSwipe?(.cancelled)
+            default:
+                break
+            }
+        }
+    }
+}
+
+private struct ProjectSaveLocation: View {
+    @Binding var selection: Workspace.SaveLocation?
+    @EnvironmentObject private var workspace: Workspace
+    @Environment(\.words) private var words
+
+    var body: some View {
+        let location = selection ?? workspace.defaultSaveLocation
+        Menu {
+            Button(words("file.iCloud")) { selection = .iCloud }
+                .disabled(workspace.cloudDirectory == nil)
+                .accessibilityIdentifier("save-to-icloud")
+            Button(words("file.local")) { selection = .device }
+                .accessibilityIdentifier("save-to-device")
+        } label: {
+            LabeledContent(words("file.location"),
+                           value: words(workspace.checkingCloud && selection == nil ? "working"
+                                        : location == .iCloud ? "file.iCloud" : "file.local"))
+        }
+        .accessibilityIdentifier("project-save-location")
+        if !workspace.checkingCloud && workspace.cloudDirectory == nil {
+            Text(words("file.iCloudUnavailable")).font(.footnote).foregroundStyle(.secondary)
         }
     }
 }
@@ -278,8 +352,7 @@ struct NewProjectScreen: View {
     @State private var title = ""
     @State private var center = ""
     @State private var template: ProjectTemplate?
-    @State private var destination: URL?
-    @State private var folderPicker = false
+    @State private var saveLocation: Workspace.SaveLocation?
     @State private var errorMessage: String?
 
     var body: some View {
@@ -292,9 +365,7 @@ struct NewProjectScreen: View {
                     Text(words("template.fiveW")).tag(ProjectTemplate?.some(.fiveW))
                     Text(words("template.time")).tag(ProjectTemplate?.some(.time))
                 }
-                Button { folderPicker = true } label: {
-                    LabeledContent(words("file.location"), value: destination?.lastPathComponent ?? words("file.local"))
-                }
+                ProjectSaveLocation(selection: $saveLocation)
                 if let errorMessage { Text(verbatim: errorMessage).foregroundStyle(.red) }
             }
             .navigationTitle(words("project.new"))
@@ -303,19 +374,18 @@ struct NewProjectScreen: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(words("project.create")) {
                         Task {
-                            await workspace.create(title: title, center: center, template: template, directory: destination)
+                            await workspace.create(title: title, center: center, template: template,
+                                                   location: saveLocation ?? workspace.defaultSaveLocation)
                             if let error = workspace.error {
                                 errorMessage = words.error(error)
                                 workspace.error = nil
                             } else if workspace.project != nil { dismiss() }
                         }
                     }
-                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || workspace.isBusy)
+                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || workspace.isBusy ||
+                              (workspace.checkingCloud && saveLocation == nil))
                     .accessibilityIdentifier("create-project")
                 }
-            }
-            .fileImporter(isPresented: $folderPicker, allowedContentTypes: [.folder]) { result in
-                if case .success(let url) = result { destination = url }
             }
         }
     }
@@ -327,9 +397,8 @@ struct ImportScreen: View {
     @Environment(\.words) private var words
     let preview: Workspace.ImportPreview
     @State private var restore = false
-    @State private var folderPicker = false
     @State private var errorMessage: String?
-    @State private var destination: URL?
+    @State private var saveLocation: Workspace.SaveLocation?
 
     var body: some View {
         NavigationStack {
@@ -344,9 +413,7 @@ struct ImportScreen: View {
                             .accessibilityLabel(words("project.cover"))
                     }
                     if preview.isSharing { Toggle(words("file.restore"), isOn: $restore) }
-                    Button { folderPicker = true } label: {
-                        LabeledContent(words("file.location"), value: destination?.lastPathComponent ?? words("file.local"))
-                    }
+                    ProjectSaveLocation(selection: $saveLocation)
                 }
                 if let errorMessage { Text(verbatim: errorMessage).foregroundStyle(.red) }
                 if !preview.notices.isEmpty {
@@ -363,17 +430,17 @@ struct ImportScreen: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(words("project.import")) {
                         Task {
-                            await workspace.acceptImport(preview, asBackup: restore, directory: destination)
+                            await workspace.acceptImport(preview, asBackup: restore,
+                                                         location: saveLocation ?? workspace.defaultSaveLocation)
                             if let error = workspace.error {
                                 errorMessage = words.error(error)
                                 workspace.error = nil
                             }
                         }
-                    }.disabled(workspace.isBusy).accessibilityIdentifier("accept-import")
+                    }
+                    .disabled(workspace.isBusy || (workspace.checkingCloud && saveLocation == nil))
+                    .accessibilityIdentifier("accept-import")
                 }
-            }
-            .fileImporter(isPresented: $folderPicker, allowedContentTypes: [.folder]) { result in
-                if case .success(let url) = result { destination = url }
             }
         }
     }

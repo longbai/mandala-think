@@ -2,6 +2,80 @@ import XCTest
 
 final class EditorTests: XCTestCase {
     @MainActor
+    func testSaveLocationAppliesOnlyToCurrentProject() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-mandala.language", "en"]
+        app.launch()
+        app.buttons["new-project"].tap()
+        let location = app.buttons["project-save-location"]
+        XCTAssertTrue(location.waitForExistence(timeout: 10))
+        let title = app.textFields["project-title"]
+        title.tap()
+        title.typeText("Local location " + UUID().uuidString.prefix(8))
+        let create = app.buttons["create-project"]
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: create)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 20), .completed)
+        let defaultLabel = location.label
+        XCTAssertTrue(defaultLabel.contains("iCloud Drive") || defaultLabel.contains("On This Device"))
+
+        location.tap()
+        app.buttons["save-to-device"].tap()
+        XCTAssertTrue(location.label.contains("On This Device"))
+        create.tap()
+        let close = app.buttons["close-project"]
+        XCTAssertTrue(close.waitForExistence(timeout: 15), app.debugDescription)
+        close.tap()
+
+        app.buttons["new-project"].tap()
+        XCTAssertTrue(location.waitForExistence(timeout: 10))
+        XCTAssertEqual(location.label, defaultLabel)
+    }
+
+    @MainActor
+    func testICloudDocumentRoundTripWithMac() throws {
+        let name = ProcessInfo.processInfo.environment["MANDALA_TEST_ICLOUD_PROJECT"] ?? ""
+        try XCTSkipUnless(!name.isEmpty, "Set MANDALA_TEST_ICLOUD_PROJECT and edit the test package on Mac.")
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-mandala.language", "en"]
+        app.launch()
+        app.buttons["new-project"].tap()
+        let title = app.textFields["project-title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        title.tap()
+        title.typeText(name)
+        let center = app.textFields["project-center"]
+        center.tap()
+        center.typeText("Written on iPhone")
+        let create = app.buttons["create-project"]
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: create)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 30), .completed)
+        XCTAssertTrue(app.buttons["project-save-location"].label.contains("iCloud Drive"))
+        create.tap()
+
+        let close = app.buttons["close-project"]
+        XCTAssertTrue(close.waitForExistence(timeout: 30))
+        close.tap()
+        let row = app.buttons.matching(NSPredicate(format: "identifier == %@ AND label == %@", "project-row", name))
+            .firstMatch
+        let root = app.buttons.matching(NSPredicate(format: "identifier IN %@",
+                                                    ["slot-center", "expanded-4-4"])).firstMatch
+        let end = Date().addingTimeInterval(120)
+        repeat {
+            XCTAssertTrue(row.waitForExistence(timeout: 10), app.debugDescription)
+            row.tap()
+            if !root.waitForExistence(timeout: 6) {
+                XCTAssertFalse(app.alerts.firstMatch.exists, app.debugDescription)
+                continue
+            }
+            if root.label.contains("Written on Mac") { return }
+            close.tap()
+        } while Date() < end
+        XCTFail("The Mac edit did not arrive in the same iCloud project. \(app.debugDescription)")
+    }
+
+    @MainActor
     func testEmptyPositionAndAutosaveAcrossLevels() {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -229,6 +303,7 @@ final class EditorTests: XCTestCase {
         app.launchArguments = ["-mandala.language", "en"]
         app.launch()
         XCTAssertTrue(app.buttons["open-project"].waitForExistence(timeout: 10))
+        app.terminate()
         let link = try XCTUnwrap(URL(string: "mandala-think://project/project123456/cell/childcell0001/actionid00001"))
         app.open(link)
         let action = app.staticTexts.containing(NSPredicate(format: "label == %@", "Linked action from Reminders")).firstMatch
@@ -278,12 +353,16 @@ final class EditorTests: XCTestCase {
         oldRow.swipeLeft(velocity: .slow)
         let delete = app.buttons["delete-project"]
         XCTAssertTrue(delete.waitForExistence(timeout: 5))
-        XCTAssertEqual(delete.frame.width, rowFrame.width / 2, accuracy: 2)
+        XCTAssertEqual(delete.frame.width, 72, accuracy: 2)
         XCTAssertEqual(delete.frame.maxX, rowFrame.maxX, accuracy: 2)
         XCTAssertEqual(delete.frame.midY, rowFrame.midY, accuracy: 1)
         XCTAssertEqual(delete.frame.height, rowFrame.height, accuracy: 2)
         XCTAssertEqual(delete.label, "Delete")
         XCTAssertFalse(delete.staticTexts["Delete"].exists)
+        oldRow.swipeRight(velocity: .slow)
+        XCTAssertTrue(delete.waitForNonExistence(timeout: 5))
+        oldRow.swipeLeft(velocity: .slow)
+        XCTAssertTrue(delete.waitForExistence(timeout: 5))
         delete.tap()
         let removed = NSPredicate(format: "exists == false")
         expectation(for: removed, evaluatedWith: oldRow)
@@ -317,26 +396,26 @@ final class EditorTests: XCTestCase {
         XCTAssertTrue(action.waitForExistence(timeout: 10))
         action.tap()
         action.typeText(name)
-        app.buttons["confirm-action"].tap()
-        app.buttons["finish-editing"].tap()
-
-        XCTAssertTrue(app.buttons["expand-top_left"].waitForExistence(timeout: 10))
-        tile.tap()
-        app.buttons["Add to Reminders…"].tap()
         let create = app.buttons["Create Reminder"]
         XCTAssertTrue(create.waitForExistence(timeout: 12), app.debugDescription)
+        if !create.isHittable { app.swipeUp() }
         create.tap()
         let open = app.buttons["Open in Reminders"]
         XCTAssertTrue(open.waitForExistence(timeout: 12), app.debugDescription)
-        app.buttons["Done"].tap()
-        app.buttons["Done"].tap()
-        XCTAssertTrue(tile.waitForExistence(timeout: 10))
+        app.buttons["confirm-action"].tap()
+        app.buttons["finish-editing"].tap()
+        XCTAssertTrue(app.buttons["expand-top_left"].waitForExistence(timeout: 10))
         tile.tap()
         XCTAssertTrue(reminders.wait(for: .runningForeground, timeout: 10))
-        let note = reminders.descendants(matching: .any)
-            .matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", "Source in MandalaThink",
-                                  "mandala-think://project/")).firstMatch
-        XCTAssertTrue(note.waitForExistence(timeout: 10), reminders.debugDescription)
+        let reminder = reminders.cells.matching(NSPredicate(format: "label BEGINSWITH %@", name)).firstMatch
+        let source = reminder.links.matching(NSPredicate(format: "label BEGINSWITH %@", "mandala-think://")).firstMatch
+        XCTAssertTrue(source.waitForExistence(timeout: 15), reminders.debugDescription)
+        let sourceURL = try XCTUnwrap(URL(string: source.label))
+        app.terminate()
+        app.open(sourceURL)
+        let returnedAction = app.staticTexts["cell-detail-action"]
+        XCTAssertTrue(returnedAction.waitForExistence(timeout: 20), app.debugDescription)
+        XCTAssertEqual(returnedAction.label, name)
     }
 
     @MainActor

@@ -45,8 +45,10 @@
 "export.ready" = "没有发现格式兼容问题。";
 "export.share" = "分享项目";
 "file.compatibility" = "格式兼容性";
-"file.local" = "此设备";
+"file.local" = "仅此设备";
 "file.location" = "保存位置";
+"file.iCloud" = "iCloud 云盘 › MandalaThink";
+"file.iCloudUnavailable" = "iCloud 云盘不可用。可在「设置」中开启 iCloud 云盘以同步项目。";
 "file.restore" = "按备份恢复";
 "grid.count" = "%ld 格";
 "grid.expand" = "进入子九宫格";

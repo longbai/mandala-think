@@ -1,6 +1,6 @@
 # MandalaThink 项目格式规范 v2
 
-当前由 iPad、iPhone 应用的共享核心实现。macOS CLI 和 Agent Skill 将使用同一格式。
+iPad、iPhone 应用和 Go CLI 都遵循本规范。
 
 每个已保存的格子有一份独立的 YAML，文件名就是格子 ID。父格用「方位 → 子格 ID」关联外围格。展开当前格时，当前格本身就是下一层的中心。点击空位先打开编辑器，首次有效编辑后自动创建并保存该格。
 

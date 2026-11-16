@@ -196,6 +196,8 @@ private struct ActionEditor: View {
     @State private var date: String
     @State private var time: String
     @State private var timeZone: String
+    @State private var savedActionID: String?
+    @State private var reminderWorking = false
 
     init(request: ActionRequest) {
         self.request = request
@@ -210,53 +212,75 @@ private struct ActionEditor: View {
         _time = State(initialValue: due?.time ?? "09:00")
         let zone = TimeZone.current.identifier
         _timeZone = State(initialValue: due?.timeZone ?? (TimeZone.knownTimeZoneIdentifiers.contains(zone) ? zone : "Etc/UTC"))
+        _savedActionID = State(initialValue: request.item?.id)
     }
 
     private var due: ActionDue? {
         dueEnabled ? ActionDue(date: date, time: timed ? time : nil, timeZone: timed ? timeZone : nil) : nil
     }
 
+    private var isValid: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            (due == nil || (try? due?.components()) != nil)
+    }
+
     var body: some View {
         NavigationStack {
             Form {
-                TextField(words("action.name"), text: $title)
-                    .accessibilityIdentifier("action-name")
-                TextField(words("action.notes"), text: $notes, axis: .vertical)
-                Toggle(words("action.due"), isOn: $dueEnabled)
-                if dueEnabled {
-                    TextField("YYYY-MM-DD", text: $date).keyboardType(.numbersAndPunctuation)
-                        .accessibilityLabel(words("action.date"))
-                    Toggle(words("action.timed"), isOn: $timed)
-                    if timed {
-                        TextField("HH:mm", text: $time).keyboardType(.numbersAndPunctuation)
-                            .accessibilityLabel(words("action.time"))
-                        Picker(words("action.zone"), selection: $timeZone) {
-                            ForEach(TimeZone.knownTimeZoneIdentifiers, id: \.self) { Text($0).tag($0) }
+                Section {
+                    TextField(words("action.name"), text: $title)
+                        .accessibilityIdentifier("action-name")
+                    TextField(words("action.notes"), text: $notes, axis: .vertical)
+                    Toggle(words("action.due"), isOn: $dueEnabled)
+                    if dueEnabled {
+                        TextField("YYYY-MM-DD", text: $date).keyboardType(.numbersAndPunctuation)
+                            .accessibilityLabel(words("action.date"))
+                        Toggle(words("action.timed"), isOn: $timed)
+                        if timed {
+                            TextField("HH:mm", text: $time).keyboardType(.numbersAndPunctuation)
+                                .accessibilityLabel(words("action.time"))
+                            Picker(words("action.zone"), selection: $timeZone) {
+                                ForEach(TimeZone.knownTimeZoneIdentifiers, id: \.self) { Text($0).tag($0) }
+                            }
+                        }
+                        if let due, (try? due.components()) == nil {
+                            Text(words("action.invalidDue")).font(.footnote).foregroundStyle(.red)
                         }
                     }
-                    if let due, (try? due.components()) == nil {
-                        Text(words("action.invalidDue")).font(.footnote).foregroundStyle(.red)
-                    }
                 }
+                .disabled(reminderWorking)
+                ReminderControls(actionID: savedActionID, isReady: isValid, working: $reminderWorking,
+                                 prepare: prepareReminder)
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle(words(request.item == nil ? "action.add" : "action.edit"))
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button(words("cancel")) { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(words("cancel")) { dismiss() }.disabled(reminderWorking)
+                }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(words("done")) { apply() }
+                    Button(words("done")) { if saveAction() != nil { dismiss() } }
                         .accessibilityIdentifier("confirm-action")
-                        .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                                  (due != nil && (try? due?.components()) == nil))
+                        .disabled(!isValid || reminderWorking)
                 }
             }
+            .interactiveDismissDisabled(reminderWorking)
         }
     }
 
-    private func apply() {
+    private func prepareReminder() async -> ReminderRequest? {
+        guard let draftID = workspace.draft?.id, let action = saveAction(),
+              await workspace.flush(), workspace.draft?.id == draftID,
+              let cellID = workspace.draft?.cellID else { return nil }
+        return ReminderRequest(cellID: cellID, action: action)
+    }
+
+    private func saveAction() -> CellAction? {
+        guard workspace.draft != nil, isValid else { return nil }
         do {
             let existing = workspace.project?.actionIDs ?? []
             let draft = Set((workspace.draft?.cell.actions ?? []).map(\.id))
-            let id = try request.item?.id ?? ShortID.generate(excluding: existing.union(draft))
+            let id = try savedActionID ?? ShortID.generate(excluding: existing.union(draft))
             let item = CellAction(id: id, title: title, notes: notes.isEmpty ? nil : notes, due: due)
             workspace.changeDraft {
                 var actions = $0.cell.actions ?? []
@@ -264,8 +288,12 @@ private struct ActionEditor: View {
                 else { actions.append(item) }
                 $0.cell.actions = actions
             }
-            dismiss()
-        } catch { workspace.error = error }
+            savedActionID = id
+            return item
+        } catch {
+            workspace.error = error
+            return nil
+        }
     }
 }
 

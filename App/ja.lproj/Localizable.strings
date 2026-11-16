@@ -45,8 +45,10 @@
 "export.ready" = "形式の互換性に問題はありません。";
 "export.share" = "プロジェクトを共有";
 "file.compatibility" = "形式の互換性";
-"file.local" = "このデバイス内";
+"file.local" = "このデバイスのみ";
 "file.location" = "保存先";
+"file.iCloud" = "iCloud Drive › MandalaThink";
+"file.iCloudUnavailable" = "iCloud Drive を利用できません。同期するには「設定」で有効にしてください。";
 "file.restore" = "バックアップを復元";
 "grid.count" = "%ld マス";
 "grid.expand" = "下の階層を開く";

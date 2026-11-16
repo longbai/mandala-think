@@ -4,6 +4,13 @@ English · [简体中文](docs/README.zh-Hans.md) · [日本語](docs/README.ja.
 
 MandalaThink is a nine-square thinking tool for iPhone and iPad. Use the 3×3 view to work on a topic and the 9×9 view to see its branches together. Cells can hold notes, photos, attachments, and actions, with optional color labels. The app supports English, Simplified Chinese, Japanese, and Korean.
 
+### Features
+
+- **Apple Reminders.** Send cell actions to the system Reminders app. Each reminder includes a link back to its source cell in MandalaThink.
+- **iCloud Drive sync.** New and imported projects default to `iCloud Drive/MandalaThink` when iCloud Drive is available. Choose **On This Device** to keep an individual project local. On Mac, find the same `.mprj` in Finder and edit it with the CLI.
+- **No MandalaThink backend.** Projects stay on your device or in your iCloud Drive. The browser reader processes files locally in the browser.
+- **Legacy MandalArt compatibility.** Import and export `.mandala` files and browse their nested grids.
+
 ## Mandala thinking
 
 Write a question, goal, or topic in the center of a 3×3 grid. Use the eight surrounding cells to capture related ideas. To explore one of those ideas, make it the center of another grid. For example, start with “Prepare a talk,” then explore “Materials” in a separate grid with cells for examples, images, and references. [MandalArt introduction](https://www.atpress.ne.jp/news/11958)
@@ -20,11 +27,28 @@ Write a question, goal, or topic in the center of a 3×3 grid. Use the eight sur
 
 Run `mandala-web-reader` and open [http://127.0.0.1:8080](http://127.0.0.1:8080). Select or drop a legacy `.mandala` file, such as [sample.mandala](MandalaCore/Tests/MandalaCoreTests/Fixtures/sample.mandala). The browser reads the file locally. Use `-listen 127.0.0.1:8081` to choose another port.
 
+### Document CLI
+
+On macOS, use `mandala-web-reader` to create and validate projects, edit a YAML snapshot, or convert between document formats.
+
+```sh
+./mandala-web-reader new Notes.mprj "Notes" "What should I explore?"
+./mandala-web-reader read Notes.mprj > project.yaml
+# Edit project.yaml, then apply it to the same project.
+./mandala-web-reader write --replace Notes.mprj project.yaml
+./mandala-web-reader validate Notes.mprj
+./mandala-web-reader convert Notes.mprj Notes.mandalaprj
+```
+
+Snapshots include cells, base64-encoded assets, and reminder records. An in-place write checks the project ID and revision in the snapshot. Use `mandala-web-reader --help` for stdin, backup, and legacy import options.
+
+The repository includes the [MandalaThink skill](.agents/skills/mandala-think/SKILL.md). In Codex, invoke `$mandala-think` to review or edit a package through the same YAML CLI.
+
 ## Build and test
 
 ### iPhone and iPad
 
-Open [mandala-think.xcodeproj](mandala-think.xcodeproj) from the repository root. Select the `mandala-think` scheme and an iPhone or iPad simulator, then click Run. The app requires iOS or iPadOS 17 or later. For a physical device, select your development team under **Signing & Capabilities**. The default bundle ID is `org.mandalathink.app`.
+Open [mandala-think.xcodeproj](mandala-think.xcodeproj) from the repository root. Select the `mandala-think` scheme and an iPhone or iPad simulator, then click Run. The app requires iOS or iPadOS 17 or later. For a physical device, select your development team under **Signing & Capabilities**. The default bundle ID is `org.mandalathink.app`. The signing profile must authorize the iCloud Documents container `iCloud.org.mandalathink.app`. If you build under a different team, use its own App ID and container, and update the entitlements, Info.plist, and ProjectDisk accordingly.
 
 Run the format tests from the repository root:
 
@@ -43,3 +67,7 @@ go -C cli build -buildvcs=false -o ../mandala-web-reader .
 ```
 
 The executable embeds the HTML, CSS, and JavaScript from [cli/dist](cli/dist). You can copy and run the executable by itself.
+
+### Document CLI
+
+With Go 1.22 or later, build the program using the command above. The same executable runs the reader and the document commands. Atomic document writes are supported on macOS and Linux.

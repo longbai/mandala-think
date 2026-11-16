@@ -4,6 +4,13 @@
 
 MandalaThink 是一款面向 iPhone 和 iPad 的九宫格思考工具。用 3×3 梳理当前主题，用 9×9 同时查看下一层。每格可记录文字、照片、附件和行动，也可用颜色标记。界面支持简体中文、英文、日文和韩文。
 
+### 特性
+
+- **调用系统提醒事项。** 格子里的行动可添加到 Apple 提醒事项，提醒中的来源链接可直接返回对应格子。
+- **通过 iCloud 云盘同步。** iCloud 云盘可用时，新建和导入的项目默认保存到 `iCloud 云盘/MandalaThink`。可为单个项目选择「仅此设备」。Mac 上可在 Finder 找到同一份 `.mprj`，并用 CLI 编辑。
+- **无自建服务器。** 项目保存在设备本地或你的 iCloud 云盘。网页阅读器在浏览器内解析文件。
+- **兼容旧版 MandalArt。** 支持导入和导出 `.mandala` 文件，并逐层浏览九宫格。
+
 ## Mandala 思考法
 
 在九宫格中央写下问题、目标或主题，在周围八格记录相关想法。要深入某个想法，就把它作为下一张九宫格的中心。例如，围绕「准备一次分享」列出听众、材料和时间，再展开「材料」整理案例、图片和参考资料。[MandalArt 九宫格介绍](https://www.atpress.ne.jp/news/11958)
@@ -20,11 +27,28 @@ MandalaThink 是一款面向 iPhone 和 iPad 的九宫格思考工具。用 3×3
 
 运行 `mandala-web-reader`，打开 [http://127.0.0.1:8080](http://127.0.0.1:8080)，选择或拖入旧版 `.mandala` 文件。可用 [sample.mandala](../MandalaCore/Tests/MandalaCoreTests/Fixtures/sample.mandala) 试读。文件由浏览器在本地解析。用 `-listen 127.0.0.1:8081` 可切换端口。
 
+### 文档 CLI
+
+在 macOS 上可用 `mandala-web-reader` 创建、读取和校验项目，通过 YAML 编辑内容，也可在文档包和分享包之间转换。
+
+```sh
+./mandala-web-reader new Notes.mprj "笔记" "有哪些值得探索的问题？"
+./mandala-web-reader read Notes.mprj > project.yaml
+# 编辑 project.yaml 后写回原项目
+./mandala-web-reader write --replace Notes.mprj project.yaml
+./mandala-web-reader validate Notes.mprj
+./mandala-web-reader convert Notes.mprj Notes.mandalaprj
+```
+
+YAML 快照包含格子、以 Base64 编码的附件和提醒事项记录。写回原项目时会检查快照中的项目 ID 和修订号。标准输入、备份和旧格式导入选项见 `mandala-web-reader --help`。
+
+在 Codex 中可调用 [`$mandala-think`](../.agents/skills/mandala-think/SKILL.md)，通过同一个 YAML CLI 阅读和编辑文档包。
+
 ## 编译与测试
 
 ### iPhone 和 iPad
 
-用 Xcode 打开根目录下的 [mandala-think.xcodeproj](../mandala-think.xcodeproj)，选择 `mandala-think` scheme 和 iPhone 或 iPad 模拟器，点击 Run。最低支持 iOS／iPadOS 17。真机运行时，在 **Signing & Capabilities** 选择开发团队，默认 Bundle ID 为 `org.mandalathink.app`。
+用 Xcode 打开根目录下的 [mandala-think.xcodeproj](../mandala-think.xcodeproj)，选择 `mandala-think` scheme 和 iPhone 或 iPad 模拟器，点击 Run。最低支持 iOS／iPadOS 17。真机运行时，在 **Signing & Capabilities** 选择开发团队。默认 Bundle ID 为 `org.mandalathink.app`，签名描述文件须授权 iCloud Documents 容器 `iCloud.org.mandalathink.app`。使用其他团队时，请使用该团队自己的 App ID 和容器，并更新 entitlements、Info.plist 和 ProjectDisk。
 
 在仓库根目录运行格式测试：
 
@@ -43,3 +67,7 @@ go -C cli build -buildvcs=false -o ../mandala-web-reader .
 ```
 
 可执行文件内嵌 [cli/dist](../cli/dist) 中的 HTML、CSS 和 JavaScript，可以单独拷贝运行。
+
+### 文档 CLI
+
+用上面的 Go 编译命令即可生成同一个程序，既能启动网页阅读器，也支持文档命令。macOS 和 Linux 支持原子写入。

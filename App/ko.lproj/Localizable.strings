@@ -45,8 +45,10 @@
 "export.ready" = "형식 호환성 문제가 없습니다.";
 "export.share" = "프로젝트 공유";
 "file.compatibility" = "형식 호환성";
-"file.local" = "이 기기";
+"file.local" = "이 기기에만 저장";
 "file.location" = "저장 위치";
+"file.iCloud" = "iCloud Drive › MandalaThink";
+"file.iCloudUnavailable" = "iCloud Drive를 사용할 수 없습니다. 동기화하려면 설정에서 iCloud Drive를 켜세요.";
 "file.restore" = "백업으로 복원";
 "grid.count" = "%ld칸";
 "grid.expand" = "하위 그리드 열기";

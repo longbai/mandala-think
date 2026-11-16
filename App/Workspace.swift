@@ -8,6 +8,13 @@ import MandalaCore
 final class Workspace: ObservableObject {
     enum SaveState: String { case clean, saving, failed, conflict }
 
+    enum SaveLocation {
+        case iCloud
+        case device
+    }
+
+    enum StorageError: Error { case iCloudUnavailable }
+
     struct Draft: Identifiable {
         let id = UUID()
         var cellID: String?
@@ -32,7 +39,22 @@ final class Workspace: ObservableObject {
 
     struct ReminderDestination: Equatable {
         let cellID: String
+        let actionID: String?
+    }
+
+    private struct ReminderRoute {
+        let projectID: String
+        let cellID: String
         let actionID: String
+
+        init?(_ url: URL) {
+            let parts = url.pathComponents.filter { $0 != "/" }
+            guard url.host?.lowercased() == "project", parts.count == 4, parts[1] == "cell",
+                  ShortID.isValid(parts[0]), ShortID.isValid(parts[2]), ShortID.isValid(parts[3]) else { return nil }
+            projectID = parts[0]
+            cellID = parts[2]
+            actionID = parts[3]
+        }
     }
 
     @Published var reminderDestination: ReminderDestination?
@@ -46,15 +68,26 @@ final class Workspace: ObservableObject {
     @Published var share: ShareItem?
     @Published var error: Error?
     @Published private(set) var saveState: SaveState = .clean
-    @Published private(set) var isBusy = false
+    @Published private(set) var isBusy = false {
+        didSet {
+            if !isBusy, pendingReminder != nil { Task { await openPendingReminder() } }
+        }
+    }
     @Published private(set) var waitingForSync = false
+    @Published private(set) var cloudDirectory: URL?
+    @Published private(set) var checkingCloud = true
 
     private var autosave: Task<Void, Never>?
     private var writeTask: Task<Bool, Never>?
     private var backgroundTask = UIBackgroundTaskIdentifier.invalid
     private var heldScope: URL?
     private var recoverable: Project?
+    private var pendingReminder: ReminderRoute?
     private let defaults = UserDefaults.standard
+    let cloudProjects = NSMetadataQuery()
+    private var cloudLookup: Task<Void, Never>?
+
+    var defaultSaveLocation: SaveLocation { cloudDirectory == nil ? .device : .iCloud }
 
     var currentID: String? { path.last }
     var currentCell: Cell? { currentID.flatMap { project?.cells[$0] } }
@@ -70,27 +103,73 @@ final class Workspace: ObservableObject {
         return asset(at: project.manifest.legacyPreviewPath)
     }
 
+    func refreshCloudLibrary() async {
+        if let cloudLookup {
+            await cloudLookup.value
+            return
+        }
+        let lookup = Task {
+            let directory = await Task.detached { ProjectDisk.cloudDirectory() }.value
+            if directory != cloudDirectory {
+                cloudProjects.stop()
+                cloudDirectory = directory
+                if directory != nil {
+                    cloudProjects.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
+                    cloudProjects.predicate = NSPredicate(format: "%K ENDSWITH[c] %@", NSMetadataItemFSNameKey, ".mprj")
+                    cloudProjects.start()
+                }
+            }
+            checkingCloud = false
+            refresh()
+            cloudLookup = nil
+        }
+        cloudLookup = lookup
+        await lookup.value
+    }
+
     func refresh() {
         do {
-            var urls = Set(try ProjectDisk.localProjects())
+            var urls = Dictionary(uniqueKeysWithValues: try ProjectDisk.localProjects().map {
+                ($0.standardizedFileURL.path, $0)
+            })
+            if let directory = cloudDirectory {
+                for url in (try? ProjectDisk.projects(in: directory)) ?? [] {
+                    urls[url.standardizedFileURL.path] = url
+                }
+                cloudProjects.disableUpdates()
+                defer { cloudProjects.enableUpdates() }
+                for case let item as NSMetadataItem in cloudProjects.results {
+                    guard let url = item.value(forAttribute: NSMetadataItemURLKey) as? URL,
+                          url.deletingLastPathComponent().standardizedFileURL.path == directory.standardizedFileURL.path else {
+                        continue
+                    }
+                    urls[url.standardizedFileURL.path] = url
+                }
+            }
             for value in defaults.array(forKey: "externalProjects") as? [Data] ?? [] {
                 var stale = false
                 if let url = try? URL(resolvingBookmarkData: value, options: .withoutUI,
                                       relativeTo: nil, bookmarkDataIsStale: &stale) {
-                    urls.insert(url.standardizedFileURL)
+                    urls[url.standardizedFileURL.path] = url
                 }
             }
             var ranks: [String: Int] = [:]
             for (index, path) in recentProjects.enumerated() where ranks[path] == nil {
                 ranks[path] = index
             }
-            projects = urls.sorted { left, right in
+            projects = urls.values.sorted { left, right in
                 let leftRank = ranks[left.standardizedFileURL.path] ?? Int.max
                 let rightRank = ranks[right.standardizedFileURL.path] ?? Int.max
                 if leftRank != rightRank { return leftRank < rightRank }
                 return left.lastPathComponent.localizedStandardCompare(right.lastPathComponent) == .orderedAscending
             }
         } catch { self.error = error }
+    }
+
+    private func saveDirectory(for location: SaveLocation) throws -> URL? {
+        guard location == .iCloud else { return nil }
+        guard let cloudDirectory else { throw StorageError.iCloudUnavailable }
+        return cloudDirectory
     }
 
     private var recentProjects: [String] {
@@ -118,15 +197,15 @@ final class Workspace: ObservableObject {
         } catch { self.error = error }
     }
 
-    func create(title: String, center: String, template: ProjectTemplate?, directory: URL?) async {
+    func create(title: String, center: String, template: ProjectTemplate?, location: SaveLocation) async {
         guard !isBusy, await flush() else { return }
         isBusy = true
         defer { isBusy = false }
         do {
             let new = try Project(title: title, center: center, template: template)
+            let directory = try saveDirectory(for: location)
             let url = try await Task.detached { try ProjectDisk.create(new, in: directory) }.value
-            setProject(new, at: url, in: directory)
-            remember(url, directory: directory)
+            setProject(new, at: url)
             refresh()
         } catch { self.error = error }
     }
@@ -137,10 +216,7 @@ final class Workspace: ObservableObject {
         defer { isBusy = false }
         do {
             if url.pathExtension.lowercased() == "mprj" {
-                let value = try await Task.detached { try ProjectDisk.read(url) }.value
-                setProject(value, at: url)
-                remember(url)
-                try await resumeRecovery()
+                try await openPackage(url)
             } else {
                 let ext = url.pathExtension.lowercased()
                 let preview = try await Task.detached {
@@ -159,13 +235,14 @@ final class Workspace: ObservableObject {
         } catch { self.error = error }
     }
 
-    func acceptImport(_ preview: ImportPreview, asBackup: Bool, directory: URL?) async {
+    func acceptImport(_ preview: ImportPreview, asBackup: Bool, location: SaveLocation) async {
         guard !isBusy, await flush() else { return }
         isBusy = true
         defer { isBusy = false }
         do {
             var value = preview.project
             if preview.isSharing && !asBackup { try value.makeIndependentCopy() }
+            let directory = try saveDirectory(for: location)
             let imported = value
             let existing = projects
             let url = try await Task.detached {
@@ -175,8 +252,7 @@ final class Workspace: ObservableObject {
                 return try ProjectDisk.create(imported, in: directory)
             }.value
             pendingImport = nil
-            setProject(value, at: url, in: directory)
-            remember(url, directory: directory)
+            setProject(value, at: url)
             refresh()
         } catch { self.error = error }
     }
@@ -467,10 +543,9 @@ final class Workspace: ObservableObject {
         }
     }
 
-    private func setProject(_ value: Project, at url: URL, in directory: URL? = nil) {
+    private func setProject(_ value: Project, at url: URL) {
         if let heldScope { heldScope.stopAccessingSecurityScopedResource() }
-        let accessURL = directory ?? url
-        heldScope = accessURL.startAccessingSecurityScopedResource() ? accessURL : nil
+        heldScope = url.startAccessingSecurityScopedResource() ? url : nil
         projectURL = url
         let openedPath = url.standardizedFileURL.path
         recentProjects = [openedPath] + recentProjects.filter { $0 != openedPath }
@@ -494,12 +569,10 @@ final class Workspace: ObservableObject {
         if !(NSFileVersion.unresolvedConflictVersionsOfItem(at: url) ?? []).isEmpty { saveState = .conflict }
     }
 
-    private func remember(_ url: URL, directory: URL? = nil) {
-        if let local = try? ProjectDisk.library(), url.deletingLastPathComponent().standardizedFileURL == local.standardizedFileURL {
-            return
-        }
-        let accessed = directory?.startAccessingSecurityScopedResource() ?? false
-        defer { if accessed { directory?.stopAccessingSecurityScopedResource() } }
+    private func remember(_ url: URL) {
+        let parent = url.deletingLastPathComponent().standardizedFileURL.path
+        guard parent != (try? ProjectDisk.library().standardizedFileURL.path),
+              parent != cloudDirectory?.standardizedFileURL.path else { return }
         guard let bookmark = try? url.bookmarkData(options: .minimalBookmark, includingResourceValuesForKeys: nil,
                                                    relativeTo: nil) else { return }
         var entries = defaults.array(forKey: "externalProjects") as? [Data] ?? []
@@ -508,26 +581,43 @@ final class Workspace: ObservableObject {
     }
 
     func openReminderURL(_ url: URL) async {
-        guard url.host == "project" else { return }
-        let parts = url.pathComponents.filter { $0 != "/" }
-        guard parts.count == 4, parts[1] == "cell", ShortID.isValid(parts[0]), ShortID.isValid(parts[2]),
-              ShortID.isValid(parts[3]) else { error = ProjectError.invalidDocument("reminder"); return }
-        if project?.manifest.projectID != parts[0] {
-            refresh()
-            let available = projects
-            let match = await Task.detached {
-                available.first { (try? ProjectDisk.read($0).manifest.projectID) == parts[0] }
-            }.value
-            guard let match else { error = ProjectError.invalidDocument(parts[0]); return }
-            await open(match)
-        }
-        guard let project, project.manifest.projectID == parts[0],
-              project.cells[parts[2]]?.actions?.contains(where: { $0.id == parts[3] }) == true else {
-            error = ProjectError.invalidDocument(parts[2])
+        guard let route = ReminderRoute(url) else {
+            error = ProjectError.invalidDocument("reminder")
             return
         }
-        if await navigate(to: parts[2]) {
-            reminderDestination = ReminderDestination(cellID: parts[2], actionID: parts[3])
-        }
+        pendingReminder = route
+        await openPendingReminder()
+    }
+
+    private func openPendingReminder() async {
+        guard !isBusy, let route = pendingReminder else { return }
+        pendingReminder = nil
+        isBusy = true
+        defer { isBusy = false }
+        guard await finishEditor() else { return }
+        do {
+            if project?.manifest.projectID != route.projectID {
+                await refreshCloudLibrary()
+                let available = projects
+                let match = await Task.detached {
+                    available.first { (try? ProjectDisk.projectID(at: $0)) == route.projectID }
+                }.value
+                guard let match else { throw ProjectError.invalidDocument(route.projectID) }
+                try await openPackage(match)
+            }
+            guard let project, project.manifest.projectID == route.projectID,
+                  let cell = project.cells[route.cellID], await navigate(to: route.cellID) else {
+                throw ProjectError.invalidDocument(route.cellID)
+            }
+            let actionID = cell.actions?.contains(where: { $0.id == route.actionID }) == true ? route.actionID : nil
+            reminderDestination = ReminderDestination(cellID: route.cellID, actionID: actionID)
+        } catch { self.error = error }
+    }
+
+    private func openPackage(_ url: URL) async throws {
+        let value = try await Task.detached { try ProjectDisk.read(url) }.value
+        setProject(value, at: url)
+        remember(url)
+        try await resumeRecovery()
     }
 }

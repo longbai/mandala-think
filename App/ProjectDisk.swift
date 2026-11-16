@@ -3,6 +3,7 @@ import MandalaCore
 
 enum ProjectDisk {
     private static let manager = FileManager.default
+    private static let cloudContainer = "iCloud.org.mandalathink.app"
 
     static func library() throws -> URL {
         let url = try manager.url(for: .documentDirectory, in: .userDomainMask,
@@ -12,12 +13,33 @@ enum ProjectDisk {
     }
 
     static func localProjects() throws -> [URL] {
-        try manager.contentsOfDirectory(at: library(), includingPropertiesForKeys: nil,
+        try projects(in: library())
+    }
+
+    static func cloudDirectory() -> URL? {
+        manager.url(forUbiquityContainerIdentifier: cloudContainer)?
+            .appendingPathComponent("Documents", isDirectory: true)
+    }
+
+    static func projects(in directory: URL) throws -> [URL] {
+        try manager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil,
                                         options: .skipsHiddenFiles).filter { $0.pathExtension.lowercased() == "mprj" }
     }
 
     static func read(_ url: URL) throws -> Project {
         try coordinatedRead(url) { try ProjectPackage.readDirectory($0) }
+    }
+
+    static func projectID(at url: URL) throws -> String {
+        try coordinatedRead(url) { location in
+            let manifest = location.appendingPathComponent("project.yaml")
+            let values = try manifest.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
+            guard values.isRegularFile == true, values.isSymbolicLink != true,
+                  let size = values.fileSize, size <= ProjectPackage.maximumBytes else {
+                throw ProjectError.invalidDocument(manifest.lastPathComponent)
+            }
+            return try ProjectPackage.readManifest(Data(contentsOf: manifest)).projectID
+        }
     }
 
     static func fileData(_ url: URL) throws -> Data {
@@ -60,22 +82,40 @@ enum ProjectDisk {
 
     static func create(_ project: Project, in directory: URL? = nil) throws -> URL {
         let folder = try directory ?? library()
-        let scoped = folder.startAccessingSecurityScopedResource()
-        defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
+        try manager.createDirectory(at: folder, withIntermediateDirectories: true)
         let name = ProjectPackage.safeFilename(project.manifest.title)
         for counter in 1...10_000 {
             let basename = name + (counter == 1 ? "" : " " + String(counter)) + ".mprj"
             let url = folder.appendingPathComponent(basename, isDirectory: true)
             guard !manager.fileExists(atPath: url.path) else { continue }
-            try write(project, at: url, replacing: nil)
+            if directory == nil {
+                try write(project, at: url, replacing: nil)
+            } else {
+                try publish(project, to: url)
+            }
             return url
         }
         throw ProjectError.conflict
     }
 
+    private static func publish(_ project: Project, to url: URL) throws {
+        let staging = manager.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try manager.createDirectory(at: staging, withIntermediateDirectories: false)
+        defer { try? manager.removeItem(at: staging) }
+        let local = staging.appendingPathComponent(url.lastPathComponent, isDirectory: true)
+        try write(project, at: local, replacing: nil)
+        try manager.setUbiquitous(true, itemAt: local, destinationURL: url)
+    }
+
     static func coordinatedRead<T>(_ url: URL, _ read: (URL) throws -> T) throws -> T {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        if url.pathExtension.lowercased() == "mprj",
+           (try? url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey]))?
+            .ubiquitousItemDownloadingStatus == .notDownloaded {
+            try manager.startDownloadingUbiquitousItem(at: url)
+        }
         var coordinationError: NSError?
         var result: Result<T, Error>?
         NSFileCoordinator().coordinate(readingItemAt: url, options: [], error: &coordinationError) { coordinatedURL in

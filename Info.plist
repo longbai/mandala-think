@@ -87,6 +87,18 @@
 	<string>Record sound for videos you attach to a cell.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>Create reminders you select from your Mandala project.</string>
+	<key>NSUbiquitousContainers</key>
+	<dict>
+		<key>iCloud.org.mandalathink.app</key>
+		<dict>
+			<key>NSUbiquitousContainerIsDocumentScopePublic</key>
+			<true/>
+			<key>NSUbiquitousContainerName</key>
+			<string>MandalaThink</string>
+			<key>NSUbiquitousContainerSupportedFolderLevels</key>
+			<string>One</string>
+		</dict>
+	</dict>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

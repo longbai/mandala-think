@@ -47,6 +47,8 @@
 "file.compatibility" = "Format Compatibility";
 "file.local" = "On This Device";
 "file.location" = "Save Location";
+"file.iCloud" = "iCloud Drive › MandalaThink";
+"file.iCloudUnavailable" = "iCloud Drive is unavailable. Enable it in Settings to sync projects.";
 "file.restore" = "Restore as Backup";
 "grid.count" = "%ld cells";
 "grid.expand" = "Open Subgrid";
