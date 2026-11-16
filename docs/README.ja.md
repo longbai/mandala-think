@@ -42,7 +42,7 @@ macOS では `mandala-web-reader` でプロジェクトを作成、検証でき�
 
 YAML にはマス、Base64 形式の添付ファイル、リマインダーの記録が含まれます。既存のプロジェクトに書き戻す際は、プロジェクト ID とリビジョンを照合します。標準入力、バックアップ、旧形式の読み込みについては `mandala-web-reader --help` を参照してください。
 
-Codex では [`$mandala-think`](../.agents/skills/mandala-think/SKILL.md) を呼び出すと、同じ YAML CLI でドキュメントパッケージを読み込み、編集できます。
+公開 [MandalaThink スキル](../skills/mandala-think/SKILL.md) の `skills/mandala-think` ディレクトリをエージェントのスキルディレクトリへコピーし、Go CLI を PATH に追加します。Codex で `$mandala-think` を呼び出す際は、プロジェクト名だけで指定できます。Mac では既定で iCloud Drive → MandalaThink を検索します。
 
 ## ビルドとテスト
 

@@ -42,7 +42,7 @@ On macOS, use `mandala-web-reader` to create and validate projects, edit a YAML 
 
 Snapshots include cells, base64-encoded assets, and reminder records. An in-place write checks the project ID and revision in the snapshot. Use `mandala-web-reader --help` for stdin, backup, and legacy import options.
 
-The repository includes the [MandalaThink skill](.agents/skills/mandala-think/SKILL.md). In Codex, invoke `$mandala-think` to review or edit a package through the same YAML CLI.
+Install the public [MandalaThink skill](skills/mandala-think/SKILL.md) by copying the `skills/mandala-think` directory into your agent’s skills directory. Add the Go CLI to your PATH. In Codex, invoke `$mandala-think` with a project name, such as “Read Trip Planning.” On Mac the skill searches iCloud Drive → MandalaThink by default.
 
 ## Build and test
 

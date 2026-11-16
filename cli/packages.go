@@ -371,38 +371,46 @@ func writePackage(path string, p *project, replace, backup bool) error {
 }
 
 func checkRevision(path string, expected manifest) error {
-	info, err := os.Lstat(path)
+	current, err := readProjectManifest(path)
 	if err != nil {
-		return err
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("expected a .mprj directory")
-	}
-	name := filepath.Join(path, "project.yaml")
-	info, err = os.Lstat(name)
-	if err != nil {
-		return err
-	}
-	if !info.Mode().IsRegular() {
-		return fmt.Errorf("invalid project manifest")
-	}
-	file, err := os.Open(name)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	data, err := readLimited(file, maxRecord)
-	if err != nil {
-		return err
-	}
-	var current manifest
-	if err := decodeYAML(data, &current); err != nil {
 		return err
 	}
 	if current.ID != expected.ID || current.Revision != expected.Revision {
 		return fmt.Errorf("project ID or revision changed; read the current package and retry")
 	}
 	return nil
+}
+
+func readProjectManifest(path string) (manifest, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return manifest{}, err
+	}
+	if !info.IsDir() {
+		return manifest{}, fmt.Errorf("expected a .mprj directory")
+	}
+	name := filepath.Join(path, "project.yaml")
+	info, err = os.Lstat(name)
+	if err != nil {
+		return manifest{}, err
+	}
+	if !info.Mode().IsRegular() {
+		return manifest{}, fmt.Errorf("invalid project manifest")
+	}
+	file, err := os.Open(name)
+	if err != nil {
+		return manifest{}, err
+	}
+	defer file.Close()
+	data, err := readLimited(file, maxRecord)
+	if err != nil {
+		return manifest{}, err
+	}
+	var current manifest
+	if err := decodeYAML(data, &current); err != nil {
+		return manifest{}, err
+	}
+	return current, nil
 }
 
 func materializeProject(path string, files map[string][]byte) error {

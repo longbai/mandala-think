@@ -5,11 +5,42 @@ package main
 import (
 	"bytes"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 )
+
+func TestLocateProjectByName(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	folder := filepath.Join(home, "Library", "Mobile Documents", "iCloud~org~mandalathink~app", "Documents")
+	if err := os.MkdirAll(folder, 0700); err != nil {
+		t.Fatal(err)
+	}
+	first := filepath.Join(folder, "Trip Planning.mprj")
+	if err := runDocument("new", []string{first, "旅行计划"}, nil, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"旅行计划", "trip planning", "Trip Planning.mprj"} {
+		var output bytes.Buffer
+		err := runDocument("locate", []string{name}, nil, &output)
+		if err != nil || strings.TrimSuffix(output.String(), "\n") != first {
+			t.Fatalf("locate %q: %q, %v", name, output.String(), err)
+		}
+	}
+	second := filepath.Join(folder, "Trip Planning 2.mprj")
+	if err := runDocument("new", []string{second, "旅行计划"}, nil, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if err := runDocument("locate", []string{"旅行计划"}, nil, io.Discard); err == nil || !strings.Contains(err.Error(), "ambiguous") {
+		t.Fatalf("expected two matches, got %v", err)
+	}
+	if err := runDocument("locate", []string{"Missing"}, nil, io.Discard); err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("expected no matches, got %v", err)
+	}
+}
 
 func TestYAMLDocumentCommands(t *testing.T) {
 	folder := t.TempDir()

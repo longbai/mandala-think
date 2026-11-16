@@ -11,6 +11,7 @@ import (
 const usage = `Usage:
   mandala-web-reader [serve] [-listen 127.0.0.1:8080]
   mandala-web-reader new <project.mprj> <title> [center]
+  mandala-web-reader locate <project name>
   mandala-web-reader read <package>
   mandala-web-reader validate <package>
   mandala-web-reader write [--replace | --backup] <package> [snapshot.yaml | -]
@@ -18,6 +19,7 @@ const usage = `Usage:
   mandala-web-reader id
 
 Read and validate accept .mprj, .mandalaprj, and legacy .mandala.
+Locate prints the path of a project in iCloud Drive/MandalaThink on macOS.
 Write and convert produce .mprj or .mandalaprj. Write reads YAML from stdin
 by default. --replace checks the project ID and revision before updating
 an existing .mprj. --backup preserves reminder records and project identity.
@@ -26,6 +28,21 @@ Use id to generate a short identifier for a new cell or action.
 
 func runDocument(command string, args []string, stdin io.Reader, stdout io.Writer) error {
 	switch command {
+	case "locate":
+		if len(args) != 1 || strings.TrimSpace(args[0]) == "" {
+			return fmt.Errorf("usage: locate <project name>")
+		}
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+		directory := filepath.Join(home, "Library", "Mobile Documents", "iCloud~org~mandalathink~app", "Documents")
+		path, err := locateProject(directory, strings.TrimSpace(args[0]))
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintln(stdout, path)
+		return err
 	case "new":
 		if len(args) < 2 || len(args) > 3 || !strings.EqualFold(filepath.Ext(args[0]), ".mprj") ||
 			strings.TrimSpace(args[1]) == "" {
@@ -77,6 +94,37 @@ func runDocument(command string, args []string, stdin io.Reader, stdout io.Write
 		return err
 	default:
 		return fmt.Errorf("unknown command %q; use --help", command)
+	}
+}
+
+func locateProject(directory, name string) (string, error) {
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		return "", fmt.Errorf("open iCloud Drive/MandalaThink: %w", err)
+	}
+	var matches []string
+	for _, entry := range entries {
+		extension := filepath.Ext(entry.Name())
+		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") || !strings.EqualFold(extension, ".mprj") {
+			continue
+		}
+		path := filepath.Join(directory, entry.Name())
+		if strings.EqualFold(name, entry.Name()) || strings.EqualFold(name, strings.TrimSuffix(entry.Name(), extension)) {
+			matches = append(matches, entry.Name())
+			continue
+		}
+		current, err := readProjectManifest(path)
+		if err == nil && current.Title != nil && strings.EqualFold(name, *current.Title) {
+			matches = append(matches, entry.Name())
+		}
+	}
+	switch len(matches) {
+	case 0:
+		return "", fmt.Errorf("project %q was not found in iCloud Drive/MandalaThink", name)
+	case 1:
+		return filepath.Join(directory, matches[0]), nil
+	default:
+		return "", fmt.Errorf("project name %q is ambiguous; matching packages: %q", name, matches)
 	}
 }
 

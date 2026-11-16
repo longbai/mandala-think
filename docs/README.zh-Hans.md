@@ -42,7 +42,7 @@ MandalaThink 是一款面向 iPhone 和 iPad 的九宫格思考工具。用 3×3
 
 YAML 快照包含格子、以 Base64 编码的附件和提醒事项记录。写回原项目时会检查快照中的项目 ID 和修订号。标准输入、备份和旧格式导入选项见 `mandala-web-reader --help`。
 
-在 Codex 中可调用 [`$mandala-think`](../.agents/skills/mandala-think/SKILL.md)，通过同一个 YAML CLI 阅读和编辑文档包。
+将公开的 [MandalaThink Skill](../skills/mandala-think/SKILL.md) 目录 `skills/mandala-think` 复制到 Agent 的 skills 目录，并将 Go CLI 加入 PATH。在 Codex 中调用 `$mandala-think` 后直接说项目名，例如「读取旅行计划」。在 Mac 上，Skill 默认在「iCloud 云盘 → MandalaThink」中查找。
 
 ## 编译与测试
 

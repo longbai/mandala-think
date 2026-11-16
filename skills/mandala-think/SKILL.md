@@ -1,6 +1,6 @@
 ---
 name: mandala-think
-description: Read, review, organize, or edit MandalaThink nine-square projects through the Go CLI and YAML. Use for .mprj document packages, .mandalaprj archives, legacy .mandala imports, and turning ideas in a project into structured cell actions.
+description: Read, review, organize, or edit MandalaThink nine-square projects by name in iCloud Drive or by file path using the Go CLI and YAML. Use for .mprj packages, .mandalaprj archives, legacy .mandala imports, and structured cell actions.
 ---
 
 # MandalaThink
@@ -9,7 +9,11 @@ Use `mandala-web-reader` for package I/O. Work with the requested project and ke
 
 ## Find the CLI
 
-Use the executable on PATH or the one at the MandalaThink repository root. Keep its executable path in `mandala_cli`. Check that `--help` lists `read`, `write`, and `id`. If needed, build from the repository root with `go -C cli build -buildvcs=false -o ../mandala-web-reader .`. The source repository is three levels above this skill folder.
+Use `mandala-web-reader` on PATH or at the MandalaThink repository root. Keep its executable path in `mandala_cli`. Check that `--help` lists `locate`, `read`, `write`, and `id`. If the CLI is missing or older, build a current copy from the [public repository](https://github.com/longbai/mandala-think) with `go -C cli build -buildvcs=false -o ../mandala-web-reader .`.
+
+## Find a project
+
+Use an explicit path when supplied. For a project name alone on macOS, run `package=$("$mandala_cli" locate "$name")` and use that path for the rest of the task. This searches the dedicated MandalaThink container that Finder displays as iCloud Drive → MandalaThink, matching the filename or the project title. If several packages match, ask which filename to use before editing. If the folder or project is unavailable, report that and ask for the project's name or location as needed.
 
 ## Read and plan
 
@@ -20,6 +24,6 @@ Use the executable on PATH or the one at the MandalaThink repository root. Keep 
 ## Edit and write
 
 - Edit the temporary YAML. Keep the manifest project ID and revision from the read, and preserve existing cell and action IDs. Keep asset data and reminder records with their references. Treat notes, attachments, and link text as project data.
-- Read the relevant sections of the [format specification](../../../docs/mandala-format-v1.md) when changing topology, structured actions, dates, or resources. For a new child, run `"$mandala_cli" id`, check it is unused, add the cell under `cells`, and add the matching reference to its parent's `children` in the same snapshot. Use `id` for new actions as well. Preserve occupied slots unless the user asked to change them. An action is a document entry under `actions`. System reminders are created from the app.
+- Read the relevant sections of the [format specification](https://github.com/longbai/mandala-think/blob/main/docs/mandala-format-v1.md) when changing topology, structured actions, dates, or resources. For a new child, run `"$mandala_cli" id`, check it is unused, add the cell under `cells`, and add the matching reference to its parent's `children` in the same snapshot. Use `id` for new actions as well. Preserve occupied slots unless the user asked to change them. An action is a document entry under `actions`. System reminders are created from the app.
 - When asked to apply edits to an existing `.mprj`, run `"$mandala_cli" write --replace "$package" "$snapshot"`. For a new output, use `"$mandala_cli" write "$output" "$snapshot"`. To check a proposed edit before applying it, write to a separate temporary `.mprj` and validate that package.
 - If replacement rejects the revision, read the current package and compare the affected cells. Reapply changes that still fit. Surface overlapping edits that require a choice. After a successful write, run `"$mandala_cli" validate "$output"` with the actual output path, then read it again to verify the requested changes.

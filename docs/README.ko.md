@@ -42,7 +42,7 @@ macOS에서는 `mandala-web-reader`로 프로젝트를 만들고 검증하거나
 
 YAML에는 각 칸의 내용, Base64로 인코딩한 첨부 파일, 미리 알림 기록이 포함됩니다. 기존 프로젝트에 다시 쓸 때는 프로젝트 ID와 리비전을 확인합니다. 표준 입력, 백업, 이전 형식 가져오기 옵션은 `mandala-web-reader --help`에서 확인할 수 있습니다.
 
-Codex에서 [`$mandala-think`](../.agents/skills/mandala-think/SKILL.md)를 호출하면 같은 YAML CLI로 문서 패키지를 읽고 편집할 수 있습니다.
+공개 [MandalaThink 스킬](../skills/mandala-think/SKILL.md)의 `skills/mandala-think` 디렉터리를 에이전트의 스킬 디렉터리에 복사하고 Go CLI를 PATH에 추가하세요. Codex에서 `$mandala-think`를 호출할 때 프로젝트 이름만 입력하면 됩니다. Mac에서는 기본적으로 iCloud Drive → MandalaThink에서 검색합니다.
 
 ## 빌드 및 테스트
 
